@@ -1,0 +1,63 @@
+// Database for the Supertext Shopify app: Shopify sessions, per-shop
+// Supertext settings and translation jobs. PostgreSQL (DATABASE_URL).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+/// Supertext settings for one shop.
+model ShopSettings {
+  shop       String   @id
+  /// Supertext AI API key; empty = use the SUPERTEXT_API_KEY variable.
+  apiKey     String   @default("")
+  /// "default", "more" (formal) or "less" (informal).
+  politeness String   @default("default")
+  updatedAt  DateTime @updatedAt
+}
+
+/// One click on "Translate with Supertext": resources × target languages.
+model TranslationJob {
+  id        String   @id @default(cuid())
+  shop      String
+  /// queued, running, done, failed
+  status    String   @default("queued")
+  /// JSON: { resourceIds: string[], locales: string[], overwrite: boolean }
+  request   String
+  total     Int      @default(0)
+  completed Int      @default(0)
+  /// Number of fields written to Shopify.
+  written   Int      @default(0)
+  /// Number of fields left alone because a current translation existed.
+  skipped   Int      @default(0)
+  /// JSON array of { resource, locale, message }.
+  errors    String   @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, createdAt])
+}

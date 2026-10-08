@@ -1,0 +1,43 @@
+# Shopify app configuration for Supertext Translation.
+# The client ID is public; the client secret lives only in the hosting
+# platform's variables (SHOPIFY_API_SECRET), never in this repo.
+# Docs: https://shopify.dev/docs/apps/tools/cli/configuration
+client_id = "d001de0fc4c060b4b044489f7992553a"
+name = "Supertext Translation"
+# Set to the Railway URL of the app backend (see docs/DEVELOPER.md → Hosting).
+application_url = "https://shopify-supertext-translation.up.railway.app"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[access_scopes]
+# read_products: products and collections · read_content: pages, blogs, articles
+# read_locales: the shop's languages · read/write_translations: Shopify's translation store
+scopes = "read_products,read_content,read_locales,read_translations,write_translations"
+
+[auth]
+redirect_urls = [
+  "https://shopify-supertext-translation.up.railway.app/auth/callback",
+  "https://shopify-supertext-translation.up.railway.app/auth/shopify/callback",
+]
+
+[webhooks]
+api_version = "2026-10"
+
+  # Handled by: /app/routes/webhooks.app.uninstalled.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = ["app/uninstalled"]
+
+  # Handled by: /app/routes/webhooks.app.scopes_update.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  # Mandatory privacy compliance topics (needed for an App Store listing).
+  # Handled by: /app/routes/webhooks.compliance.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
