@@ -117,6 +117,9 @@ export default function Translate() {
 
   return (
     <s-page heading="Translate with Supertext">
+      <s-button slot="secondary-actions" href="/app/settings">
+        Settings
+      </s-button>
       {result && "error" in result && (
         <s-banner tone="critical">
           <s-paragraph>{result.error}</s-paragraph>
@@ -231,6 +234,11 @@ export default function Translate() {
         </s-section>
 
         <s-section heading="2. Choose the languages">
+          <s-paragraph>
+            The Supertext code next to each language is the variant it is
+            translated into. Change it under{" "}
+            <s-link href="/app/settings">Settings → Languages</s-link>.
+          </s-paragraph>
           {data.primary && (
             <s-paragraph>
               Translating from <strong>{data.primary.name}</strong>, your

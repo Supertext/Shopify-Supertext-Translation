@@ -32,7 +32,7 @@ It can't change your products, prices, orders or customers, and it doesn't read 
 
 ## Enter the API key
 
-1. Open **Apps → Supertext Translation → Settings**.
+1. Open **Apps → Supertext Translation → Settings** (on a phone: the **Settings** button on the translate page, or **⋯** at the top right).
 2. Paste the key into **API key**. A key copied with its `Supertext-Auth-Key ` prefix works too.
 3. Click **Save and test connection**. The page shows *Supertext accepted the API key*.
 

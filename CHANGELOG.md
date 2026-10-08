@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A **Settings** button on the translate page and a link next to the languages, so Settings is easy to find on a phone, where the app menu is hidden behind **⋯**.
 - Settings → Languages: the Supertext code for each shop language, pre-filled with a regional default (de → de-DE, fr → fr-FR, en → en-US, …) and editable (e.g. de-CH). Fixes translations failing with *INVALID_LANGUAGE_PAIR*, because Supertext needs a region for the target language and Shopify uses bare codes like "de". The translate page shows the code each language is sent with.
 - A language Supertext refuses is now reported once per run, with a message pointing to Settings → Languages, instead of once per item.
 - First version: an embedded Shopify app, **Apps → Supertext Translation**, made from Shopify's React Router template.
