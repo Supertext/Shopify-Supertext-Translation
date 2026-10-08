@@ -88,7 +88,7 @@ The tests use a fake Admin API client and a fake Supertext, so they need neither
 
 ## Hosting (Railway)
 
-The backend runs on Railway from this repo's `Dockerfile` (`railway.json`, health check `/healthz`).
+The backend runs on Railway (project *supertext-cms-demos*, service **Shopify**) from this repo's `Dockerfile` (`railway.json`, health check `/healthz`). Every push to `main` deploys. If pushes stop deploying, check that Railway's GitHub app has access to this repo (https://github.com/organizations/Supertext/settings/installations → Railway → Configure), then reconnect the service's source once.
 
 | Variable | Value |
 | --- | --- |
