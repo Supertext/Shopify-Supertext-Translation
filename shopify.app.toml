@@ -5,7 +5,7 @@
 client_id = "d001de0fc4c060b4b044489f7992553a"
 name = "Supertext Translation"
 # Set to the Railway URL of the app backend (see docs/DEVELOPER.md → Hosting).
-application_url = "https://shopify-supertext-translation.up.railway.app"
+application_url = "https://shopify-production-d86d.up.railway.app"
 embedded = true
 
 [build]
@@ -19,8 +19,8 @@ scopes = "read_products,read_content,read_locales,read_translations,write_transl
 
 [auth]
 redirect_urls = [
-  "https://shopify-supertext-translation.up.railway.app/auth/callback",
-  "https://shopify-supertext-translation.up.railway.app/auth/shopify/callback",
+  "https://shopify-production-d86d.up.railway.app/auth/callback",
+  "https://shopify-production-d86d.up.railway.app/auth/shopify/callback",
 ]
 
 [webhooks]

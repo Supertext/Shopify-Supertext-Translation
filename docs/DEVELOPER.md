@@ -93,7 +93,7 @@ The backend runs on Railway from this repo's `Dockerfile` (`railway.json`, healt
 | --- | --- |
 | `SHOPIFY_API_KEY` | the client ID |
 | `SHOPIFY_API_SECRET` | the client secret (Dev Dashboard → app → Settings) |
-| `SHOPIFY_APP_URL` | the service's public URL, e.g. `https://shopify-supertext-translation.up.railway.app` |
+| `SHOPIFY_APP_URL` | the service's public URL, e.g. `https://shopify-production-d86d.up.railway.app` |
 | `SCOPES` | as in `shopify.app.toml` |
 | `DATABASE_URL` | the shared Postgres service's URL |
 | `SHOPIFY_DB_NAME` | `shopify_supertext` (created on first start) |
