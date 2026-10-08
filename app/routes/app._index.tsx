@@ -117,9 +117,9 @@ export default function Translate() {
 
   return (
     <s-page heading="Translate with Supertext">
-      <s-button slot="secondary-actions" href="/app/settings">
-        Settings
-      </s-button>
+      <s-stack direction="inline" gap="small-200">
+        <s-link href="/app/settings">⚙ Settings: API key and languages</s-link>
+      </s-stack>
       {result && "error" in result && (
         <s-banner tone="critical">
           <s-paragraph>{result.error}</s-paragraph>

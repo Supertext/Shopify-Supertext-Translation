@@ -4,7 +4,7 @@ How to translate your shop's texts with Supertext AI. You need an administrator 
 
 ## Translate
 
-1. In the Shopify admin, open **Apps → Supertext Translation**. The app has two pages, **Translate** and **Settings**: on a computer they are listed under the app in the left sidebar; on a phone, tap **⋯** at the top right of the app, or the **Settings** button on the translate page.
+1. In the Shopify admin, open **Apps → Supertext Translation**. The app has two pages, **Translate** and **Settings**: on a computer they are listed under the app in the left sidebar; on a phone, use the **Settings** link at the top of the translate page.
 2. **Choose what to translate:** click **Products**, **Collections**, **Pages**, **Blog posts** or **Blogs**, then tick the items. **Select all on this page** ticks the 50 items shown; use **Next page** for more. Only the items on the current page are translated at once.
 3. **Choose the languages:** all your shop's other languages are ticked; untick the ones you don't want. Next to each language you see the variant Supertext translates into, for example *→ Supertext de-CH* (an administrator sets it under Settings → Languages).
 4. Leave **Overwrite existing translations** off unless you want to replace translations made earlier (see below).
