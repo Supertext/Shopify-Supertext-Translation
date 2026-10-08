@@ -37,6 +37,18 @@ Where the CMS doesn't show the plugin's version itself, the plugin's own setting
 
 `.github/workflows/release.yml` publishes a GitHub release only when the version is officially bumped: a new `## X.Y.Z — YYYY-MM-DD` section at the top of `CHANGELOG.md`, below an empty *Unreleased*, with `package.json` (the workflow's `VERSION_FILES`) carrying the same number. Then it tags `vX.Y.Z` and creates the release with that CHANGELOG section as notes (0.x as pre-releases). Pushes without a new version release nothing. Never tag or create releases by hand. A Shopify app has no installable file: `shopify app deploy` publishes the app configuration, Railway deploys the code.
 
+## Repo setup (always)
+
+Every Supertext plugin repo has, and a new one gets from the start:
+
+- `LICENSE` matching the license its manifest declares (`composer.json`, `package.json`, `pyproject.toml`, `.csproj`, plugin header).
+- `SECURITY.md`: report vulnerabilities privately through GitHub's private vulnerability reporting or support@supertext.com, never in public issues.
+- `.github/dependabot.yml`: weekly updates for its package ecosystem and GitHub Actions, minor and patch updates grouped into one pull request.
+- On GitHub: the About box filled in (one-sentence description, website https://www.supertext.com, topics), `main` protected against force-pushes and deletion, Wiki and Projects off, Dependabot alerts and private vulnerability reporting on, and the Supertext social preview image.
+- A row in the plugin list (see *Plugin list*) and in the org profile (`Supertext/.github` → `profile/README.md`).
+
+Claude sessions can't change GitHub repo settings (HTTP 403): add a new repo to Remy's setup script (`set-github-about`) instead of trying.
+
 ## Demo accounts rule (always)
 
 The demo shop is a Shopify development store, so the CMS-style `DEMO_*` accounts are Shopify staff accounts and are set up by hand in the store (see `docs/DEVELOPER.md` → *Demo*). Values never go in the repo, in chat or in logs.
