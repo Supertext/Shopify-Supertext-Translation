@@ -31,8 +31,14 @@ export async function processJob(
   onProgress: (progress: Progress) => Promise<void>,
 ): Promise<Progress> {
   const progress: Progress = { completed: 0, written: 0, skipped: 0, errors: [] };
+  // Languages Supertext refused (wrong code): reported once, then skipped.
+  const refused = new Set<string>();
   for (const resourceId of request.resourceIds) {
     for (const locale of request.locales) {
+      if (refused.has(locale)) {
+        progress.completed++;
+        continue;
+      }
       try {
         const result = await translateResource(
           admin,
@@ -49,6 +55,9 @@ export async function processJob(
           locale,
           message: (error as Error).message,
         });
+        if (/Supertext doesn't translate/.test((error as Error).message)) {
+          refused.add(locale);
+        }
         // A bad key or an exhausted limit fails every item the same way.
         if (/Authentication failed|limit is exceeded|No Supertext API key/.test((error as Error).message)) {
           progress.completed = request.resourceIds.length * request.locales.length;

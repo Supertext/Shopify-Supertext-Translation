@@ -154,3 +154,24 @@ describe("processJob", () => {
     expect(result.errors).toHaveLength(1);
   });
 });
+
+describe("refused languages", () => {
+  it("reports a language Supertext refuses once and skips it for the other items", async () => {
+    const { admin, registered } = fakeAdmin();
+    const calls: string[] = [];
+    const result = await processJob(
+      admin,
+      async (html, locale) => {
+        calls.push(locale);
+        if (locale === "de") throw new Error('Supertext doesn\'t translate from "en" into "de". Set the Supertext code …');
+        return fakeTranslate(html, locale);
+      },
+      { resourceIds: ["gid://shopify/Product/1", "gid://shopify/Product/2"], locales: ["de", "fr"], overwrite: false },
+      async () => undefined,
+    );
+    expect(calls).toEqual(["de", "fr", "fr"]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.completed).toBe(4);
+    expect(registered).toHaveLength(2);
+  });
+});

@@ -4,6 +4,8 @@ import { SupertextClient, type Politeness } from "./supertext/client.server";
 export interface Settings {
   apiKey: string;
   politeness: Politeness;
+  /** Shopify locale → Supertext code set by the shop; missing = the default. */
+  languageCodes: Record<string, string>;
 }
 
 const POLITENESS = new Set<Politeness>(["default", "more", "less"]);
@@ -16,21 +18,43 @@ export async function getSettings(shop: string): Promise<Settings> {
   return {
     apiKey: row?.apiKey ?? "",
     politeness: toPoliteness(row?.politeness),
+    languageCodes: parseCodes(row?.languageCodes),
   };
+}
+
+function parseCodes(json: string | undefined): Record<string, string> {
+  try {
+    const value = JSON.parse(json || "{}");
+    return value && typeof value === "object" ? (value as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
 }
 
 /** An empty `apiKey` keeps the saved key (the field never shows it). */
 export async function saveSettings(
   shop: string,
-  input: { apiKey?: string; politeness: Politeness },
+  input: {
+    apiKey?: string;
+    politeness: Politeness;
+    languageCodes?: Record<string, string>;
+  },
 ): Promise<void> {
   const apiKey = input.apiKey?.trim();
+  const languageCodes =
+    input.languageCodes !== undefined ? JSON.stringify(input.languageCodes) : undefined;
   await prisma.shopSettings.upsert({
     where: { shop },
-    create: { shop, apiKey: apiKey ?? "", politeness: input.politeness },
+    create: {
+      shop,
+      apiKey: apiKey ?? "",
+      politeness: input.politeness,
+      languageCodes: languageCodes ?? "{}",
+    },
     update: {
       politeness: input.politeness,
       ...(apiKey ? { apiKey } : {}),
+      ...(languageCodes !== undefined ? { languageCodes } : {}),
     },
   });
 }

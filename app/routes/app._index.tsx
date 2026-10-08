@@ -17,6 +17,7 @@ import { authenticate } from "../shopify.server";
 import { recentJobs, startJob, type JobView } from "../jobs.server";
 import { effectiveApiKey, getSettings } from "../settings.server";
 import { titleOf } from "../translation/fields.server";
+import { supertextCode } from "../translation/language-codes";
 import { listResources, shopLocales } from "../translation/shopify.server";
 import { isResourceType, RESOURCE_TYPES } from "../translation/resource-types";
 
@@ -40,7 +41,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     primary: primary ? { locale: primary.locale, name: primary.name } : null,
     targets: locales
       .filter((l) => !l.primary)
-      .map((l) => ({ locale: l.locale, name: l.name, published: l.published })),
+      .map((l) => ({
+        locale: l.locale,
+        name: l.name,
+        published: l.published,
+        code: supertextCode(l.locale, settings.languageCodes),
+      })),
     resources: page.resources.map((r) => ({
       id: r.id,
       title: titleOf(r.content),
@@ -234,7 +240,8 @@ export default function Translate() {
           {data.targets.map((l) => (
             <label key={l.locale} style={rowStyle}>
               <input type="checkbox" name="locale" value={l.locale} defaultChecked />
-              {l.name} ({l.locale})
+              {l.name} ({l.locale}){" "}
+              <span style={{ color: "#6d7175" }}>→ Supertext {l.code}</span>
               {!l.published && <em style={{ color: "#6d7175" }}>, not published yet</em>}
             </label>
           ))}

@@ -48,11 +48,26 @@ The app translates into the languages your shop already has; it doesn't add lang
 
 The default language (shown as *Default* in Shopify) is the source language.
 
+### Supertext language codes
+
+Shopify names most languages without a region (`de`, `fr`), but Supertext translates into a regional variant (`de-CH`, `de-DE`, `fr-FR`, `en-US`). Under **Apps → Supertext Translation → Settings → Languages**, each of your languages has a Supertext code, pre-filled like this:
+
+| Shopify | Supertext code (default) |
+| --- | --- |
+| `de` | `de-DE` |
+| `fr` | `fr-FR` |
+| `it` | `it-IT` |
+| `en` | `en-US` |
+| `pt-BR`, `zh-TW`, … (with region) | the same code |
+
+Change a code when your shop targets another region, for example `de-CH` (Swiss German, no "ß") or `fr-CH`, then click **Save**. Leave the field empty to go back to the default. The translate page shows the code each language is sent with.
+
 ## All settings
 
 | Setting | Where | What it does |
 | --- | --- | --- |
 | API key | Settings | Your Supertext AI key. Required. |
+| Supertext code per language | Settings → Languages | The regional code Supertext translates into, e.g. `de-CH`. Pre-filled with a default (see *Supertext language codes*). |
 | Form of address | Settings | *Let Supertext decide*, *Formal* (German "Sie") or *Informal* (German "du"). Applies to all languages that have the distinction. |
 | Overwrite existing translations | Translate page, per run | Off: fields that already have a current translation are kept. On: everything selected is translated again. |
 
@@ -70,6 +85,7 @@ Open **Settings → Apps and sales channels**, choose **Supertext Translation** 
 | --- | --- |
 | *Add your Supertext API key* | Enter the key under Settings. No account yet? Create one at [supertext.com](https://www.supertext.com/person/en/account/signin); generate the key at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) (requires the Admin role). |
 | *Authentication failed. Please check the Supertext API key* | The key is wrong or was deleted. Generate a new one at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) and save it under Settings. |
+| *Supertext doesn't translate from "en" into "de"* | The language's Supertext code has no region or isn't supported. Set a regional code under Settings → Languages, e.g. `de-CH`, and translate again. |
 | *Your Supertext translation limit is exceeded* | Your Supertext plan's limit is used up. Contact Supertext or upgrade your plan. |
 | *Too many requests to Supertext* | Supertext received too many requests at once and the app's automatic retries ran out. Start the translation again. |
 | *Add a second language* | Your shop has only one language. Add one under Settings → Languages. |

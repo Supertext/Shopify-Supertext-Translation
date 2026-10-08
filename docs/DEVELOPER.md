@@ -17,6 +17,7 @@ app/
     translate.server.ts     one resource × one locale: read → Supertext → register
     process.server.ts       a whole job: every resource × every locale
     resource-types.ts       the resource types the UI offers (shared with the browser)
+    language-codes.ts       Shopify locale → Supertext code (defaults, per-shop overrides)
   supertext/
     client.server.ts        Supertext AI file translation client (same as the other plugins)
     html.server.ts          packs fields into one HTML document and back
@@ -38,7 +39,7 @@ shopify.app.toml            app configuration: client ID, URLs, scopes, webhooks
    - reads `translatableResource(resourceId)` with `translatableContent { key value digest type }` and `translations(locale) { key value outdated }`;
    - selects fields (`fields.server.ts`): types `STRING`, `SINGLE_LINE_TEXT_FIELD`, `MULTI_LINE_TEXT_FIELD` as escaped plain text; `HTML`, `INLINE_RICH_TEXT` as markup; skips `handle`, empty values and other types (JSON, URLs, file references); skips fields with a current translation unless *overwrite*; outdated translations are always redone;
    - builds one HTML document with one `<div data-st-id="N">` per field (a whole field per element, as the shared rich-text rule requires), split into several documents above 900,000 characters;
-   - translates it with Supertext (source = the shop's primary locale, target = the Shopify locale code, e.g. `de` or `pt-BR`);
+   - translates it with Supertext: source = the shop's primary locale (sent as the bare language, e.g. `en`), target = the locale's **Supertext code** (`translation/language-codes.ts`): the shop's own setting, else Shopify's code if it has a region (`pt-BR`), else a regional default (`de` → `de-DE`, `fr` → `fr-FR`, `en` → `en-US`). Supertext rejects bare targets like `de` with `INVALID_LANGUAGE_PAIR`; the client turns that into a message pointing to Settings → Languages, and the job reports it once per language and skips that language;
    - writes the fields with `translationsRegister`, passing each field's `translatableContentDigest`. If Supertext returns fewer fields than sent, nothing is written for that item.
 4. Progress (`completed`, `written`, `skipped`, `errors`) is saved after every pair; the page polls every 2 seconds while a job runs. Authentication and limit errors stop the job, other errors only skip the item.
 

@@ -1,5 +1,6 @@
 import prisma from "./db.server";
 import { getSettings, supertextClient } from "./settings.server";
+import { supertextCode } from "./translation/language-codes";
 import { unauthenticated } from "./shopify.server";
 import { shopLocales } from "./translation/shopify.server";
 import type { TranslateDocument } from "./translation/translate.server";
@@ -76,7 +77,7 @@ async function runJob(id: string, shop: string, request: JobRequest): Promise<vo
   const primary = (await shopLocales(admin)).find((l) => l.primary)?.locale;
   const translate: TranslateDocument = (html, locale) =>
     client.translateDocument(html, {
-      targetLanguage: locale,
+      targetLanguage: supertextCode(locale, settings.languageCodes),
       sourceLanguage: primary,
       politeness: settings.politeness,
     });

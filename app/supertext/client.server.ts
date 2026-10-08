@@ -177,11 +177,36 @@ export class SupertextClient {
                 ? 'The Supertext service is currently unavailable.'
                 : `Supertext answered with HTTP ${status}.`;
     const detail = (await response.text().catch(() => '')).replace(/<[^>]*>/g, '').trim();
+    const pair = languagePairError(detail);
+    if (pair) {
+      throw new SupertextError(pair, status);
+    }
     if (detail) {
       message += ` (${detail.slice(0, 200)})`;
     }
     throw new SupertextError(message, status);
   }
+}
+
+/**
+ * A readable message for Supertext's INVALID_LANGUAGE_PAIR error, else null.
+ * Supertext wants a regional target code ("de-CH", "en-US"), not "de".
+ */
+export function languagePairError(detail: string): string | null {
+  if (!detail.includes('INVALID_LANGUAGE_PAIR')) {
+    return null;
+  }
+  let source = '';
+  let target = '';
+  try {
+    const data = JSON.parse(detail) as { source_lang?: string; target_lang?: string };
+    source = data.source_lang ?? '';
+    target = data.target_lang ?? '';
+  } catch {
+    // not JSON: keep the generic wording
+  }
+  const pair = source && target ? ` from "${source}" into "${target}"` : '';
+  return `Supertext doesn't translate${pair}. Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).`;
 }
 
 /**

@@ -15,15 +15,32 @@ import {
   toPoliteness,
 } from "../settings.server";
 import { appVersion, releaseUrl } from "../version.server";
+import { shopLocales } from "../translation/shopify.server";
+import {
+  defaultSupertextCode,
+  isValidCode,
+  normalizeCode,
+  supertextCode,
+} from "../translation/language-codes";
 
 const SIGNIN_URL = "https://www.supertext.com/person/en/account/signin";
 const API_KEY_URL = "https://www.supertext.com/en/integrations/api";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const settings = await getSettings(session.shop);
+  const { admin, session } = await authenticate.admin(request);
+  const [settings, locales] = await Promise.all([
+    getSettings(session.shop),
+    shopLocales(admin),
+  ]);
   const version = appVersion();
   return {
+    languages: locales.map((l) => ({
+      locale: l.locale,
+      name: l.name,
+      primary: l.primary,
+      code: supertextCode(l.locale, settings.languageCodes),
+      suggested: defaultSupertextCode(l.locale),
+    })),
     hasShopKey: settings.apiKey !== "",
     usesEnvironmentKey: settings.apiKey === "" && effectiveApiKey(settings) !== "",
     politeness: settings.politeness,
@@ -42,10 +59,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return { ok: true, message: "The API key was removed." };
   }
 
+  // Language codes: keep only the ones that differ from the suggestion.
+  const languageCodes: Record<string, string> = {};
+  const invalid: string[] = [];
+  for (const [name, value] of form.entries()) {
+    if (!name.startsWith("code:")) continue;
+    const locale = name.slice(5);
+    const code = normalizeCode(String(value));
+    if (!code || code === defaultSupertextCode(locale)) continue;
+    if (!isValidCode(code)) {
+      invalid.push(`${locale}: "${String(value)}"`);
+      continue;
+    }
+    languageCodes[locale] = code;
+  }
+
   await saveSettings(session.shop, {
     apiKey: String(form.get("apiKey") ?? ""),
     politeness: toPoliteness(form.get("politeness")),
+    languageCodes,
   });
+  if (invalid.length) {
+    return {
+      ok: false,
+      message: `Saved, except these language codes, which aren't valid codes like de-CH: ${invalid.join(", ")}.`,
+    };
+  }
 
   if (intent === "test") {
     const settings = await getSettings(session.shop);
@@ -105,6 +144,33 @@ export default function Settings() {
             </a>{" "}
             (requires the Admin role).
           </s-paragraph>
+        </s-section>
+
+        <s-section heading="Languages">
+          <s-paragraph>
+            The language code Supertext uses for each of your shop&apos;s
+            languages. Supertext needs a region for the languages you
+            translate into, for example de-CH for Swiss German or fr-FR for
+            French as spoken in France. Your default language is translated
+            from.
+          </s-paragraph>
+          {data.languages.map((l) => (
+            <div key={l.locale} style={{ margin: "8px 0" }}>
+              <label htmlFor={`code-${l.locale}`} style={{ display: "block", fontWeight: 600 }}>
+                {l.name} ({l.locale}){l.primary ? ", default language" : ""}
+              </label>
+              <input
+                id={`code-${l.locale}`}
+                name={`code:${l.locale}`}
+                defaultValue={l.code}
+                placeholder={l.suggested}
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                style={{ ...inputStyle, maxWidth: 200, margin: "4px 0 0" }}
+              />
+            </div>
+          ))}
         </s-section>
 
         <s-section heading="Translation style">
