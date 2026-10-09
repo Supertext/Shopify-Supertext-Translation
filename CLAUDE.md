@@ -37,7 +37,7 @@ Where the CMS doesn't show the plugin's version itself, the plugin's own setting
 
 ## Plugin list (always)
 
-`README.md` ends with the shared list of all Supertext plugins, between the `<!-- supertext-plugins:start -->` and `<!-- supertext-plugins:end -->` markers. It is identical in every Supertext plugin repo: when a plugin is added, renamed or its description changes, update the list in **all** repos. The project's `plugin-conventions.md` holds the current block. The e-commerce table (Shopify, PrestaShop) is added to the shared list by the PrestaShop work; until then this repo carries the CMS and PIM tables only.
+`README.md` ends with the shared list of all Supertext plugins, between the `<!-- supertext-plugins:start -->` and `<!-- supertext-plugins:end -->` markers. It is identical in every Supertext plugin repo: when a plugin is added, renamed or its description changes, update the list in **all** repos. The project's `plugin-conventions.md` holds the current block. It has four tables: CMS, PIM, E-commerce (Magento, PrestaShop, Shopify, Wix) and Design files.
 
 ## Releases (always)
 
