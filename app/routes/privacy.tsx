@@ -60,8 +60,10 @@ export default function Privacy() {
 
       <h2>Where the data is processed</h2>
       <p>
-        The app runs on servers of Railway Corp. (United States). Supertext
-        processes translations as described in its privacy policy.
+        The app and its database run on servers in the European Union
+        (Amsterdam, Netherlands), operated by the hosting provider Railway
+        Corp. Supertext processes translations as described in its privacy
+        policy.
       </p>
 
       <h2>How long data is kept, and deletion</h2>

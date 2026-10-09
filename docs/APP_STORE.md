@@ -88,6 +88,6 @@ Supertext Translation connects your Shopify store to Supertext, the Swiss transl
 5. Make the **icon and screenshots**, record the **screencast**.
 6. Fill in the listing with the texts above and submit.
 
-## Open question
+## Hosting region
 
-The backend and its database run in Railway's US region. For Swiss and EU merchants, moving the service and the Postgres database to Railway's EU region (Amsterdam) would let the privacy policy say "EU". If you move it, update the *Where the data is processed* section of `/privacy`.
+The app server and its database run in Railway's EU region (Amsterdam); the privacy policy says so. If the region changes, update the *Where the data is processed* section of `/privacy`.

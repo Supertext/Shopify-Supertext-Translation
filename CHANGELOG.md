@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The app server now runs in the EU (Amsterdam), like its database; the privacy policy says so.
 - Added: German, French and Italian interface. The app follows the Shopify admin language (`locale` parameter), English otherwise; errors from Supertext and Shopify are shown in that language too.
 - The *Authentication failed* message now also links to the Supertext sign-up page.
 - Supertext API keys are stored encrypted (AES-256-GCM). Keys saved earlier are encrypted automatically the next time they are used. If a stored key can't be read, Settings asks to enter it again.

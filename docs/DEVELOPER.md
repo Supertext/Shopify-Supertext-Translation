@@ -103,7 +103,7 @@ The tests use a fake Admin API client and a fake Supertext, so they need neither
 
 ## Hosting (Railway)
 
-The backend runs on Railway (project *supertext-cms-demos*, service **Shopify**) from this repo's `Dockerfile` (`railway.json`, health check `/healthz`). Every push to `main` deploys. If pushes stop deploying, check that Railway's GitHub app has access to this repo (https://github.com/organizations/Supertext/settings/installations → Railway → Configure), then reconnect the service's source once.
+The backend runs on Railway (project *supertext-cms-demos*, service **Shopify**, EU region Amsterdam, like the shared Postgres; the privacy policy names the region) from this repo's `Dockerfile` (`railway.json`, health check `/healthz`). Every push to `main` deploys. If pushes stop deploying, check that Railway's GitHub app has access to this repo (https://github.com/organizations/Supertext/settings/installations → Railway → Configure), then reconnect the service's source once.
 
 | Variable | Value |
 | --- | --- |
@@ -159,5 +159,4 @@ Never tag or create releases by hand.
 - Up to 50 items per run (one page of the list); selecting across pages and "translate everything" come later.
 - An admin action on the product and collection pages (*Translate with Supertext* in the **More actions** menu) would save a trip to the app.
 - Not in the App Store yet: see [APP_STORE.md](APP_STORE.md) for the submission checklist, listing texts and reviewer instructions.
-- The backend runs in Railway's US region; moving it to the EU region is an open question (see APP_STORE.md).
 - The demo store is set up by hand; screenshots for the guides follow once it exists.
