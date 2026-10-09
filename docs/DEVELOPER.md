@@ -146,6 +146,8 @@ Dependabot (`.github/dependabot.yml`) opens weekly pull requests: minor and patc
 
 Some major versions are ignored on purpose: TypeScript (7.x is the native compiler, which the type-checking and build tools here don't support yet) and `@types/node` (the types must match the oldest Node version the plugin supports, not the newest). Lift an ignore rule when the plugin moves to the new version.
 
+React Router majors are ignored too (`react-router` and all `@react-router/*`): the whole family has to move together with `@shopify/shopify-app-react-router`, whose 3.x releases still require `react-router` ^7, and React Router 8 needs Node 22.22 or later while the app supports 22.12. Lift the rule once a Shopify release supports React Router 8, then update all of them (and `engines.node`, if needed) in one change.
+
 ## Releasing
 
 `package.json` holds the version (the release workflow's `VERSION_FILES`); the settings page reads it at runtime.
