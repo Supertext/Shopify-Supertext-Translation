@@ -106,8 +106,13 @@ export default function Translate() {
   }, [running, revalidator]);
 
   // Only the items on the current page are submitted, so start over on every page.
+  // (Reset during render, not in an effect: React's "adjust state when a prop changes" pattern.)
   const pageKey = searchParams.toString();
-  useEffect(() => setSelected(new Set()), [pageKey]);
+  const [selectionPage, setSelectionPage] = useState(pageKey);
+  if (selectionPage !== pageKey) {
+    setSelectionPage(pageKey);
+    setSelected(new Set());
+  }
 
   const toggle = (id: string) =>
     setSelected((current) => {
