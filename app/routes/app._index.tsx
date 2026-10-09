@@ -20,6 +20,8 @@ import { titleOf } from "../translation/fields.server";
 import { supertextCode } from "../translation/language-codes";
 import { listResources, shopLocales } from "../translation/shopify.server";
 import { isResourceType, RESOURCE_TYPES } from "../translation/resource-types";
+import type { MessageKey } from "../i18n";
+import { ApiKeyHelp, rich, useI18n } from "../i18n/react";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -57,32 +59,34 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
+/** A message key, so the page shows the error in the merchant's language. */
+const failure = (error: MessageKey): { error: MessageKey } => ({ error });
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const form = await request.formData();
   const resourceIds = form.getAll("resource").map(String).filter(Boolean);
   const locales = form.getAll("locale").map(String).filter(Boolean);
   if (resourceIds.length === 0 || locales.length === 0) {
-    return { error: "Select at least one item and one language." };
+    return failure("translate.selectSomething");
   }
   const settings = await getSettings(session.shop);
   if (!effectiveApiKey(settings)) {
-    return {
-      error:
-        "No Supertext API key yet. Add it under Settings (create an account at https://www.supertext.com/person/en/account/signin, generate the key at https://www.supertext.com/en/integrations/api; requires the Admin role).",
-    };
+    return failure("translate.noApiKey");
   }
   const jobId = await startJob(session.shop, {
     resourceIds,
     locales,
     overwrite: form.get("overwrite") === "on",
   });
-  return { jobId };
+  return { jobId } as { jobId: string };
 };
 
 const isActive = (job: JobView) => job.status === "queued" || job.status === "running";
 
 export default function Translate() {
+  const i18n = useI18n();
+  const { t } = i18n;
   const data = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
   const navigation = useNavigation();
@@ -116,75 +120,54 @@ export default function Translate() {
     data.resources.length > 0 && data.resources.every((r) => selected.has(r.id));
 
   return (
-    <s-page heading="Translate with Supertext">
+    <s-page heading={t("translate.heading")}>
       <s-stack direction="inline" gap="small-200">
-        <s-link href="/app/settings">⚙ Settings: API key and languages</s-link>
+        <s-link href="/app/settings">{t("translate.settingsLink")}</s-link>
       </s-stack>
       {result && "error" in result && (
         <s-banner tone="critical">
-          <s-paragraph>{result.error}</s-paragraph>
+          <s-paragraph>{t(result.error)}</s-paragraph>
         </s-banner>
       )}
       {result && "jobId" in result && (
         <s-banner tone="success">
-          <s-paragraph>
-            Translation started. Progress shows under Recent translations;
-            you can leave this page meanwhile.
-          </s-paragraph>
+          <s-paragraph>{t("translate.started")}</s-paragraph>
         </s-banner>
       )}
       {!data.hasApiKey && (
-        <s-banner tone="warning" heading="Add your Supertext API key">
+        <s-banner tone="warning" heading={t("translate.noKey.heading")}>
           <s-paragraph>
-            The app needs a Supertext API key before it can translate. Enter
-            it under <s-link href="/app/settings">Settings</s-link>.
+            {rich(i18n, "translate.noKey.text", {
+              settings: <s-link href="/app/settings">{t("translate.noKey.settings")}</s-link>,
+            })}
           </s-paragraph>
           <s-paragraph>
-            No Supertext account yet?{" "}
-            <a
-              href="https://www.supertext.com/person/en/account/signin"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Create one at supertext.com
-            </a>
-            . Generate your API key at{" "}
-            <a
-              href="https://www.supertext.com/en/integrations/api"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              supertext.com → Integrations → API
-            </a>{" "}
-            (requires the Admin role).
+            <ApiKeyHelp />
           </s-paragraph>
         </s-banner>
       )}
       {data.targets.length === 0 && (
-        <s-banner tone="info" heading="Add a second language">
-          <s-paragraph>
-            Your shop has only one language. Add languages under Settings →
-            Languages in the Shopify admin, then come back here.
-          </s-paragraph>
+        <s-banner tone="info" heading={t("translate.oneLanguage.heading")}>
+          <s-paragraph>{t("translate.oneLanguage.text")}</s-paragraph>
         </s-banner>
       )}
 
       <Form method="post">
-        <s-section heading="1. Choose what to translate">
+        <s-section heading={t("translate.step1")}>
           <s-stack direction="inline" gap="small-200">
-            {RESOURCE_TYPES.map((t) => (
+            {RESOURCE_TYPES.map((type) => (
               <s-button
-                key={t.value}
-                variant={t.value === data.type ? "primary" : "secondary"}
-                onClick={() => setSearchParams({ type: t.value })}
+                key={type.value}
+                variant={type.value === data.type ? "primary" : "secondary"}
+                onClick={() => setSearchParams({ type: type.value })}
               >
-                {t.label}
+                {t(`resource.${type.value}`)}
               </s-button>
             ))}
           </s-stack>
 
           {data.resources.length === 0 ? (
-            <s-paragraph>Nothing of this type yet.</s-paragraph>
+            <s-paragraph>{t("translate.empty")}</s-paragraph>
           ) : (
             <div style={{ marginTop: 12 }}>
               <label style={rowStyle}>
@@ -197,7 +180,7 @@ export default function Translate() {
                     )
                   }
                 />
-                <strong>Select all on this page ({data.resources.length})</strong>
+                <strong>{t("translate.selectAll", { count: data.resources.length })}</strong>
               </label>
               {data.resources.map((r) => (
                 <label key={r.id} style={rowStyle}>
@@ -217,7 +200,7 @@ export default function Translate() {
             <s-stack direction="inline" gap="small-200">
               {searchParams.get("after") && (
                 <s-button onClick={() => setSearchParams({ type: data.type })}>
-                  First page
+                  {t("translate.firstPage")}
                 </s-button>
               )}
               {data.nextCursor && (
@@ -226,23 +209,24 @@ export default function Translate() {
                     setSearchParams({ type: data.type, after: data.nextCursor! })
                   }
                 >
-                  Next page
+                  {t("translate.nextPage")}
                 </s-button>
               )}
             </s-stack>
           )}
         </s-section>
 
-        <s-section heading="2. Choose the languages">
+        <s-section heading={t("translate.step2")}>
           <s-paragraph>
-            The Supertext code next to each language is the variant it is
-            translated into. Change it under{" "}
-            <s-link href="/app/settings">Settings → Languages</s-link>.
+            {rich(i18n, "translate.codesHint", {
+              settings: <s-link href="/app/settings">{t("translate.codesHint.settings")}</s-link>,
+            })}
           </s-paragraph>
           {data.primary && (
             <s-paragraph>
-              Translating from <strong>{data.primary.name}</strong>, your
-              shop&apos;s default language.
+              {rich(i18n, "translate.from", {
+                language: <strong>{data.primary.name}</strong>,
+              })}
             </s-paragraph>
           )}
           {data.targets.map((l) => (
@@ -250,18 +234,14 @@ export default function Translate() {
               <input type="checkbox" name="locale" value={l.locale} defaultChecked />
               {l.name} ({l.locale}){" "}
               <span style={{ color: "#6d7175" }}>→ Supertext {l.code}</span>
-              {!l.published && <em style={{ color: "#6d7175" }}>, not published yet</em>}
+              {!l.published && <em style={{ color: "#6d7175" }}>{t("translate.notPublished")}</em>}
             </label>
           ))}
           <label style={{ ...rowStyle, marginTop: 8 }}>
             <input type="checkbox" name="overwrite" />
-            Overwrite existing translations
+            {t("translate.overwrite")}
           </label>
-          <s-paragraph>
-            Without this option, fields that already have a current
-            translation are kept. Outdated ones (the original changed since)
-            are always translated again.
-          </s-paragraph>
+          <s-paragraph>{t("translate.overwriteHint")}</s-paragraph>
         </s-section>
 
         <s-section>
@@ -272,18 +252,18 @@ export default function Translate() {
               style={buttonStyle}
             >
               {submitting
-                ? "Starting…"
+                ? t("translate.starting")
                 : selected.size
-                  ? `Translate ${selected.size} with Supertext`
-                  : "Translate with Supertext"}
+                  ? i18n.tn("translate.submitCount", selected.size)
+                  : t("translate.submit")}
             </button>
           </s-stack>
         </s-section>
       </Form>
 
-      <s-section heading="Recent translations">
+      <s-section heading={t("jobs.heading")}>
         {data.jobs.length === 0 ? (
-          <s-paragraph>No translations yet.</s-paragraph>
+          <s-paragraph>{t("jobs.none")}</s-paragraph>
         ) : (
           data.jobs.map((job) => <JobRow key={job.id} job={job} />)
         )}
@@ -293,25 +273,27 @@ export default function Translate() {
 }
 
 function JobRow({ job }: { job: JobView }) {
+  const i18n = useI18n();
+  const { t } = i18n;
   const label = isActive(job)
-    ? `Translating… ${job.completed} of ${job.total}`
+    ? t("job.running", { completed: job.completed, total: job.total })
     : job.status === "failed"
-      ? "Failed"
+      ? t("job.failed")
       : job.errors.length
-        ? "Done, with errors"
-        : "Done";
+        ? t("job.doneWithErrors")
+        : t("job.done");
   return (
     <s-box padding="small" borderWidth="base" borderRadius="base">
       <s-paragraph>
-        <strong>{label}</strong> · {new Date(job.createdAt).toLocaleString()} ·{" "}
-        {job.locales.join(", ")} · {job.written} fields translated
-        {job.skipped ? `, ${job.skipped} kept` : ""}
+        <strong>{label}</strong> · {new Date(job.createdAt).toLocaleString(i18n.locale)} ·{" "}
+        {job.locales.join(", ")} · {i18n.tn("job.written", job.written)}
+        {job.skipped ? `, ${t("job.kept", { count: job.skipped })}` : ""}
       </s-paragraph>
       {job.errors.slice(0, 5).map((e, i) => (
         <s-paragraph key={i}>
           <s-text tone="critical">
             {e.locale ? `${e.locale}: ` : ""}
-            {e.message}
+            {i18n.error(e)}
           </s-text>
         </s-paragraph>
       ))}

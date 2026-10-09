@@ -34,4 +34,18 @@ const run = (cmd, args) => {
   if (result.status !== 0) process.exit(result.status ?? 1);
 };
 run("npx", ["prisma", "migrate", "deploy"]);
+
+// Translations run inside the server process, so a restart (e.g. a deploy)
+// stops them. Mark them so the merchant sees it and can start them again.
+const app = new pg.Client({ connectionString: env.DATABASE_URL });
+await app.connect();
+const interrupted = await app.query(
+  `UPDATE "TranslationJob"
+      SET status = 'failed',
+          errors = '[{"resource":"","locale":"","code":"interrupted","message":"Interrupted by an app update. Please start the translation again; finished items are kept."}]',
+          "updatedAt" = NOW()
+    WHERE status IN ('queued', 'running')`,
+);
+if (interrupted.rowCount) console.log(`[supertext] marked ${interrupted.rowCount} interrupted translation(s)`);
+await app.end();
 run("npx", ["react-router-serve", "./build/server/index.js"]);

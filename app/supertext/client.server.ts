@@ -5,6 +5,8 @@
  * document, poll its status, download the translation, delete the file.
  */
 
+import { LocalizedError, type MessageParams } from '../i18n/error';
+
 export const LIVE_ENDPOINT = 'https://api.supertext.com/v1/';
 
 /** Stay well below the API's 1,000,000 character limit per document. */
@@ -43,14 +45,22 @@ export interface TranslateOptions {
   politeness?: Politeness;
 }
 
-export class SupertextError extends Error {
+/**
+ * `message` is English (logs, tests); `code` and `params` select the
+ * `error.<code>` text the UI shows in the merchant's language.
+ */
+export class SupertextError extends LocalizedError {
   constructor(
     message: string,
-    public readonly status?: number
+    code: string,
+    options: { params?: MessageParams; status?: number; detail?: string } = {}
   ) {
-    super(message);
+    super(message, code, options.params, options.detail);
     this.name = 'SupertextError';
+    this.status = options.status;
   }
+
+  public readonly status?: number;
 }
 
 export class SupertextClient {
@@ -62,7 +72,7 @@ export class SupertextClient {
 
   constructor(private readonly options: ClientOptions) {
     if (!options.apiKey) {
-      throw new SupertextError('No Supertext API key configured.');
+      throw new SupertextError('No Supertext API key configured.', 'noApiKey');
     }
     this.endpoint = (options.endpoint || LIVE_ENDPOINT).replace(/\/+$/, '') + '/';
     this.pollIntervalMs = Math.max(250, options.pollIntervalMs ?? 2000);
@@ -104,7 +114,7 @@ export class SupertextClient {
     const response = await this.request('POST', 'translate/ai/file', form);
     const data = (await response.json().catch(() => ({}))) as { file_id?: string };
     if (!data.file_id) {
-      throw new SupertextError('Supertext did not return a file id.');
+      throw new SupertextError('Supertext did not return a file id.', 'noFileId');
     }
     return data.file_id;
   }
@@ -118,22 +128,22 @@ export class SupertextClient {
         case 'done':
           return;
         case 'error':
-          throw new SupertextError('Supertext failed to translate the document.');
+          throw new SupertextError('Supertext failed to translate the document.', 'translationFailed');
         case 'limit_exceeded':
-          throw new SupertextError('Your Supertext translation limit is exceeded.');
+          throw new SupertextError('Your Supertext translation limit is exceeded.', 'limitExceeded');
         case 'deleted':
-          throw new SupertextError('The Supertext file was deleted before it could be downloaded.');
+          throw new SupertextError('The Supertext file was deleted before it could be downloaded.', 'fileDeleted');
       }
       await new Promise((resolve) => setTimeout(resolve, this.pollIntervalMs));
     } while (Date.now() < deadline);
-    throw new SupertextError('Timed out waiting for the Supertext translation.');
+    throw new SupertextError('Timed out waiting for the Supertext translation.', 'timeout');
   }
 
   private async download(fileId: string): Promise<string> {
     const response = await this.request('GET', `translate/ai/file/${encodeURIComponent(fileId)}/translation`);
     const body = await response.text();
     if (!body.trim()) {
-      throw new SupertextError('The translated document was empty.');
+      throw new SupertextError('The translated document was empty.', 'emptyTranslation');
     }
     return body;
   }
@@ -152,7 +162,8 @@ export class SupertextClient {
           signal: AbortSignal.timeout(30_000),
         });
       } catch (error) {
-        throw new SupertextError(`Could not reach Supertext: ${(error as Error).message}`);
+        const reason = (error as Error).message;
+        throw new SupertextError(`Could not reach Supertext: ${reason}`, 'unreachable', { params: { reason } });
       }
       if (response.status !== 429 || attempt >= RATE_LIMIT_RETRIES) {
         break;
@@ -164,35 +175,43 @@ export class SupertextClient {
       return response;
     }
     const status = response.status;
-    let message =
-      status === 401 || status === 403
-        ? 'Authentication failed. Please check the Supertext API key (generate one at https://www.supertext.com/en/integrations/api; requires the Admin role).'
-        : status === 404
-          ? 'The requested Supertext resource was not found.'
-          : status === 413
-            ? 'The content is too large for Supertext to translate in one go.'
-            : status === 429
-              ? 'Too many requests to Supertext. Please try again shortly.'
-              : status >= 500
-                ? 'The Supertext service is currently unavailable.'
-                : `Supertext answered with HTTP ${status}.`;
+    const [code, english] = httpError(status);
     const detail = (await response.text().catch(() => '')).replace(/<[^>]*>/g, '').trim();
     const pair = languagePairError(detail);
     if (pair) {
-      throw new SupertextError(pair, status);
+      throw new SupertextError(pair.message, pair.code, { params: pair.params, status });
     }
-    if (detail) {
-      message += ` (${detail.slice(0, 200)})`;
-    }
-    throw new SupertextError(message, status);
+    const shortDetail = detail.slice(0, 200) || undefined;
+    throw new SupertextError(shortDetail ? `${english} (${shortDetail})` : english, code, {
+      params: { status },
+      status,
+      detail: shortDetail,
+    });
   }
+}
+
+/** Error code (`error.<code>` in the UI messages) and English text for an HTTP status. */
+function httpError(status: number): [string, string] {
+  if (status === 401 || status === 403) {
+    return [
+      'auth',
+      'Authentication failed. Please check the Supertext API key. No Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (requires the Admin role).',
+    ];
+  }
+  if (status === 404) return ['notFound', 'The requested Supertext resource was not found.'];
+  if (status === 413) return ['tooLarge', 'The content is too large for Supertext to translate in one go.'];
+  if (status === 429) return ['rateLimited', 'Too many requests to Supertext. Please try again shortly.'];
+  if (status >= 500) return ['unavailable', 'The Supertext service is currently unavailable.'];
+  return ['http', `Supertext answered with HTTP ${status}.`];
 }
 
 /**
  * A readable message for Supertext's INVALID_LANGUAGE_PAIR error, else null.
  * Supertext wants a regional target code ("de-CH", "en-US"), not "de".
  */
-export function languagePairError(detail: string): string | null {
+export function languagePairError(
+  detail: string
+): { message: string; code: string; params: MessageParams } | null {
   if (!detail.includes('INVALID_LANGUAGE_PAIR')) {
     return null;
   }
@@ -206,7 +225,11 @@ export function languagePairError(detail: string): string | null {
     // not JSON: keep the generic wording
   }
   const pair = source && target ? ` from "${source}" into "${target}"` : '';
-  return `Supertext doesn't translate${pair}. Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).`;
+  return {
+    message: `Supertext doesn't translate${pair}. Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).`,
+    code: source && target ? 'languagePair' : 'languagePairUnknown',
+    params: { source, target },
+  };
 }
 
 /**

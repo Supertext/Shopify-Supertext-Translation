@@ -1,5 +1,6 @@
 import type { AdminClient } from "./shopify.server";
 import { translateResource, type TranslateDocument } from "./translate.server";
+import { errorInfo, type ErrorInfo } from "../i18n/error";
 
 export interface JobRequest {
   resourceIds: string[];
@@ -7,11 +8,16 @@ export interface JobRequest {
   overwrite: boolean;
 }
 
-export interface JobError {
+/** `message` is English; `code`/`params`/`detail` let the UI show it in the merchant's language. */
+export interface JobError extends ErrorInfo {
   resource: string;
   locale: string;
-  message: string;
 }
+
+/** Errors that fail every item the same way: a bad key or an exhausted limit. */
+const FATAL = new Set(["auth", "limitExceeded", "noApiKey"]);
+/** Supertext refused the language (wrong code): reported once, then the language is skipped. */
+const REFUSED = new Set(["languagePair", "languagePairUnknown"]);
 
 export interface Progress {
   completed: number;
@@ -50,16 +56,12 @@ export async function processJob(
         progress.written += result.written;
         progress.skipped += result.skipped;
       } catch (error) {
-        progress.errors.push({
-          resource: resourceId,
-          locale,
-          message: (error as Error).message,
-        });
-        if (/Supertext doesn't translate/.test((error as Error).message)) {
+        const info = errorInfo(error);
+        progress.errors.push({ resource: resourceId, locale, ...info });
+        if (info.code && REFUSED.has(info.code)) {
           refused.add(locale);
         }
-        // A bad key or an exhausted limit fails every item the same way.
-        if (/Authentication failed|limit is exceeded|No Supertext API key/.test((error as Error).message)) {
+        if (info.code && FATAL.has(info.code)) {
           progress.completed = request.resourceIds.length * request.locales.length;
           await onProgress(progress);
           return progress;

@@ -4,6 +4,7 @@ import {
   type Segment,
 } from "../supertext/html.server";
 import { MAX_DOCUMENT_CHARACTERS } from "../supertext/client.server";
+import { LocalizedError } from "../i18n/error";
 import { selectFields, toTranslations } from "./fields.server";
 import {
   registerTranslations,
@@ -32,7 +33,7 @@ export async function translateResource(
   overwrite: boolean,
 ): Promise<ResourceResult> {
   const resource = await resourceForLocale(admin, resourceId, locale);
-  if (!resource) throw new Error("The item no longer exists.");
+  if (!resource) throw new LocalizedError("The item no longer exists.", "itemGone");
 
   const selection = selectFields(
     resource.content,
@@ -53,8 +54,10 @@ export async function translateResource(
 
   const inputs = toTranslations(selection, translated, locale);
   if (inputs.length < selection.segments.length) {
-    throw new Error(
+    throw new LocalizedError(
       `Supertext returned ${inputs.length} of ${selection.segments.length} fields.`,
+      "incomplete",
+      { returned: inputs.length, expected: selection.segments.length },
     );
   }
   await registerTranslations(admin, resourceId, inputs);

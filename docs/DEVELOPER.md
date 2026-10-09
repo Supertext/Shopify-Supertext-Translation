@@ -10,6 +10,7 @@ app/
     app.settings.tsx        API key, form of address, connection test, version
     webhooks.*.tsx          app/uninstalled, app/scopes_update, privacy compliance
     healthz.tsx             health check for Railway
+    privacy.tsx             public privacy policy (linked from the App Store listing)
     _index/, auth.*         landing and login pages from the template
   translation/
     shopify.server.ts       GraphQL Admin API calls (locales, resources, translationsRegister)
@@ -21,8 +22,14 @@ app/
   supertext/
     client.server.ts        Supertext AI file translation client (same as the other plugins)
     html.server.ts          packs fields into one HTML document and back
+  i18n/
+    en.ts, de.ts, fr.ts, it.ts  interface strings (English is the source and fallback)
+    index.ts                locale from Shopify's ?locale=, translator, plural forms
+    react.tsx               I18nProvider / useI18n, rich() for links inside sentences
+    error.ts                LocalizedError: English message + code for the UI
   jobs.server.ts            job rows in the database, background runner
   settings.server.ts        per-shop settings, API key resolution
+  crypto.server.ts          AES-256-GCM encryption of stored API keys
   version.server.ts         app version from package.json
   shopify.server.ts         Shopify app setup (auth, sessions, API version)
 prisma/                     schema and migrations (PostgreSQL)
@@ -30,6 +37,14 @@ scripts/start.mjs           production start: create database, migrate, serve
 test/                       Vitest unit tests with fake Shopify and fake Supertext
 shopify.app.toml            app configuration: client ID, URLs, scopes, webhooks
 ```
+
+## Interface languages
+
+The app's UI is in English, German, French and Italian and follows the merchant's admin language: Shopify adds `?locale=` (e.g. `de`, `fr-CA`) when it loads an embedded app. `app/routes/app.tsx` reads it once (`localeFromRequest`, falling back to `Accept-Language`, then English) and provides it to every page through `I18nProvider`; it sets `shouldRevalidate` to false because later requests from inside the app don't carry `?locale=`. The landing and login pages read it from their own request.
+
+- Strings live in `app/i18n/{en,de,fr,it}.ts`. `en.ts` defines the keys; the other files are typed `Messages`, so a missing key fails `npm run typecheck`, and `test/i18n.test.ts` checks that placeholders, URLs and "Supertext" are kept. **Every new or changed string gets all four languages in the same commit.** Formal address (Sie, vous, Lei), Shopify's own terms in each language (de *Kategorien*, *Blogbeiträge*; fr *boutique*; it *negozio*, *collezioni*), placeholders and URLs untranslated; French uses `\u00a0` before `? ! : ;`.
+- Plurals: keys ending in `.one` / `.other`, used with `tn(key, count)` (`Intl.PluralRules`).
+- Server errors shown in the UI are `LocalizedError`s (`SupertextError` is one): an English `message` for logs plus a `code` and `params` that select `error.<code>` in the message files; `detail` (Supertext's or Shopify's own text) is shown as it is. Job errors are stored with these fields in the job row, so the page translates them when it shows them. Actions return message keys, not text.
 
 ## How a translation runs
 
@@ -61,7 +76,7 @@ AI file translation API v1 at `https://api.supertext.com/v1/`, same as the WordP
 
 Header `Authorization: Supertext-Auth-Key <key>` (a pasted prefix is stripped). HTTP 429 is retried up to 4 times (`Retry-After`, else 1/2/4/8 s with jitter). `GET features` validates the key (*Save and test connection*).
 
-The API key is the shop's own (Settings, stored in `ShopSettings`), else the `SUPERTEXT_API_KEY` variable. `SUPERTEXT_API_ENDPOINT` points the app at a stand-in API.
+The API key is the shop's own (Settings, stored encrypted in `ShopSettings`; keys saved before encryption existed are encrypted on first read), else the `SUPERTEXT_API_KEY` variable. `SUPERTEXT_API_ENDPOINT` points the app at a stand-in API.
 
 ## Local development
 
@@ -88,7 +103,7 @@ The tests use a fake Admin API client and a fake Supertext, so they need neither
 
 ## Hosting (Railway)
 
-The backend runs on Railway (project *supertext-cms-demos*, service **Shopify**) from this repo's `Dockerfile` (`railway.json`, health check `/healthz`). Every push to `main` deploys. If pushes stop deploying, check that Railway's GitHub app has access to this repo (https://github.com/organizations/Supertext/settings/installations → Railway → Configure), then reconnect the service's source once.
+The backend runs on Railway (project *supertext-cms-demos*, service **Shopify**, EU region Amsterdam, like the shared Postgres; the privacy policy names the region) from this repo's `Dockerfile` (`railway.json`, health check `/healthz`). Every push to `main` deploys. If pushes stop deploying, check that Railway's GitHub app has access to this repo (https://github.com/organizations/Supertext/settings/installations → Railway → Configure), then reconnect the service's source once.
 
 | Variable | Value |
 | --- | --- |
@@ -99,6 +114,7 @@ The backend runs on Railway (project *supertext-cms-demos*, service **Shopify**)
 | `DATABASE_URL` | the shared Postgres service's URL |
 | `SHOPIFY_DB_NAME` | `shopify_supertext` (created on first start) |
 | `SUPERTEXT_API_KEY` | optional default key (the demo store) |
+| `SUPERTEXT_KEY_ENCRYPTION_KEY` | random string of at least 32 characters (e.g. `openssl rand -base64 48`). Encrypts the shops' Supertext API keys (AES-256-GCM, `app/crypto.server.ts`). Required: without it, keys can't be saved. If it changes, stored keys can't be read any more and shops are asked to enter theirs again; so never rotate it casually. |
 
 `scripts/start.mjs` creates `SHOPIFY_DB_NAME` on the Postgres server if needed, runs `prisma migrate deploy` and starts `react-router-serve`. When the URL changes, update `application_url` and `redirect_urls` in `shopify.app.toml` and deploy the configuration (next section).
 
@@ -124,6 +140,14 @@ Setting it up (once, by hand, because development stores can't be created or see
 4. Settings → Users: add staff accounts for Supertext staff (full permissions) and an editor-level account with *Apps* permission for tests and screenshots. Passwords stay in Keeper, never in the repo or chat.
 5. Install the app from the Dev Dashboard (app → Install app → the dev store), and enter the API key under Settings, or set `SUPERTEXT_API_KEY` on Railway.
 
+## Dependency updates
+
+Dependabot (`.github/dependabot.yml`) opens weekly pull requests: minor and patch updates grouped into one, GitHub Actions in another, each major update on its own. Merge one when CI is green and it doesn't change what the plugin supports.
+
+Some major versions are ignored on purpose: TypeScript (7.x is the native compiler, which the type-checking and build tools here don't support yet) and `@types/node` (the types must match the oldest Node version the plugin supports, not the newest). Lift an ignore rule when the plugin moves to the new version.
+
+React Router majors are ignored too (`react-router` and all `@react-router/*`): the whole family has to move together with `@shopify/shopify-app-react-router`, whose 3.x releases still require `react-router` ^7, and React Router 8 needs Node 22.22 or later while the app supports 22.12. Lift the rule once a Shopify release supports React Router 8, then update all of them (and `engines.node`, if needed) in one change.
+
 ## Releasing
 
 `package.json` holds the version (the release workflow's `VERSION_FILES`); the settings page reads it at runtime.
@@ -137,11 +161,10 @@ Never tag or create releases by hand.
 
 ## Known limitations / roadmap
 
-- Jobs run inside the web process: a restart during a job leaves it *running*. A queue (or resuming unfinished jobs on start) comes later; with one Railway instance this is rare.
+- Jobs run inside the web process. A restart (every deploy) stops running jobs; on start, `scripts/start.mjs` marks them *failed* with "Interrupted by an app update", and the merchant starts them again (finished items are kept). A queue that resumes them comes later.
 - Only products, collections, pages, blog posts and blogs. Next: product options and values, metafields, metaobjects, menus, shop policies, theme texts.
 - JSON rich-text fields (metafields of type rich text) and URL handles aren't translated.
 - Up to 50 items per run (one page of the list); selecting across pages and "translate everything" come later.
 - An admin action on the product and collection pages (*Translate with Supertext* in the **More actions** menu) would save a trip to the app.
-- No App Store listing yet: needs a listing, privacy policy, and Shopify's review.
-- The API key is stored as plain text in the app's database (per shop); encrypt it before a public listing.
+- Not in the App Store yet: see [APP_STORE.md](APP_STORE.md) for the submission checklist, listing texts and reviewer instructions.
 - The demo store is set up by hand; screenshots for the guides follow once it exists.

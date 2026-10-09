@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- The app server now runs in the EU (Amsterdam), like its database; the privacy policy says so.
+- Added: German, French and Italian interface. The app follows the Shopify admin language (`locale` parameter), English otherwise; errors from Supertext and Shopify are shown in that language too.
+- The *Authentication failed* message now also links to the Supertext sign-up page.
+- Supertext API keys are stored encrypted (AES-256-GCM). Keys saved earlier are encrypted automatically the next time they are used. If a stored key can't be read, Settings asks to enter it again.
+- Translations interrupted by an app update are now marked *Interrupted by an app update* instead of staying *Translating…* forever.
+- Public privacy policy page at `/privacy`.
+- The start page no longer asks for a shop domain (App Store rule 2.3.1); installs start from Shopify.
+- docs/APP_STORE.md: submission checklist, listing texts, reviewer instructions and screencast script.
 - A **Settings** link at the top of the translate page and next to the languages, so Settings is easy to find on a phone, where the admin doesn't show the app's menu.
 - Settings → Languages: the Supertext code for each shop language, pre-filled with a regional default (de → de-DE, fr → fr-FR, en → en-US, …) and editable (e.g. de-CH). Fixes translations failing with *INVALID_LANGUAGE_PAIR*, because Supertext needs a region for the target language and Shopify uses bare codes like "de". The translate page shows the code each language is sent with.
 - A language Supertext refuses is now reported once per run, with a message pointing to Settings → Languages, instead of once per item.
