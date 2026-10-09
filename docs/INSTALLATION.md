@@ -71,6 +71,10 @@ Change a code when your shop targets another region, for example `de-CH` (Swiss 
 | Form of address | Settings | *Let Supertext decide*, *Formal* (German "Sie") or *Informal* (German "du"). Applies to all languages that have the distinction. |
 | Overwrite existing translations | Translate page, per run | Off: fields that already have a current translation are kept. On: everything selected is translated again. |
 
+## Interface languages
+
+The app's own screens (Translate, Settings, messages and errors) are available in English, German, French and Italian. They follow the language of your Shopify admin, which Shopify passes to the app when it opens; other admin languages get English. To change it, click your name in the Shopify admin → **Manage account** → **Preferences** → **Language**, then reopen the app. This only affects the app's interface, not which languages your shop is translated into.
+
 ## Updating
 
 Supertext updates the app for all stores; you don't need to do anything. If a new version needs more permissions, Shopify asks you to approve them the next time you open the app. The installed version is shown under **Settings → About**.
@@ -84,7 +88,7 @@ Open **Settings → Apps and sales channels**, choose **Supertext Translation** 
 | Message or problem | What to do |
 | --- | --- |
 | *Add your Supertext API key* | Enter the key under Settings. No account yet? Create one at [supertext.com](https://www.supertext.com/person/en/account/signin); generate the key at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) (requires the Admin role). |
-| *Authentication failed. Please check the Supertext API key* | The key is wrong or was deleted. Generate a new one at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) and save it under Settings. |
+| *Authentication failed. Please check the Supertext API key* | The key is wrong or was deleted. Generate a new one at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) (requires the Admin role) and save it under Settings. No account yet? Create one at [supertext.com](https://www.supertext.com/person/en/account/signin). |
 | *Supertext doesn't translate from "en" into "de"* | The language's Supertext code has no region or isn't supported. Set a regional code under Settings → Languages, e.g. `de-CH`, and translate again. |
 | *Your Supertext translation limit is exceeded* | Your Supertext plan's limit is used up. Contact Supertext or upgrade your plan. |
 | *Too many requests to Supertext* | Supertext received too many requests at once and the app's automatic retries ran out. Start the translation again. |

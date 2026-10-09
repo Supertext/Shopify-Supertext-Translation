@@ -25,6 +25,12 @@ Everywhere an administrator enters or is told about the API key — the settings
 
 Wording: "No Supertext account yet? Create one at supertext.com. Generate your API key at supertext.com → Integrations → API (requires the Admin role)." In the UI, links open in a new tab (`target="_blank" rel="noopener"`); where the CMS shows plain text only, use the bare URLs.
 
+## UI languages (always)
+
+The plugin's own UI (buttons, panels, dialogs, settings, permissions, messages) is available in English, German, French and Italian through the CMS's own translation mechanism, so it follows the user's back-end language. New or changed strings get all four languages in the same commit. Formal address (Sie, vous, Lei), the CMS's own terms in each language, "Supertext", placeholders and URLs never translated.
+
+Here: Shopify passes the admin language as `?locale=`; strings live in `app/i18n/{en,de,fr,it}.ts` (typed, so a missing key fails `npm run typecheck`; `test/i18n.test.ts` checks placeholders and URLs). Server errors shown in the UI are `LocalizedError`s with a `code` (`error.<code>`); actions return message keys, not English text. See `docs/DEVELOPER.md` → *Interface languages*.
+
 ## Plugin version on the settings screen (always)
 
 Where the CMS doesn't show the plugin's version itself, the plugin's own settings or status screen does. It is read at runtime from the official version source (here `package.json`), never a second hardcoded copy, and links to the GitHub release when it is an X.Y.Z version.

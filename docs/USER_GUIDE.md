@@ -14,6 +14,8 @@ The translation runs in the background. **Recent translations** shows *Translati
 
 Each item is translated into one language after the other, so a large selection takes a few minutes.
 
+The app's screens are shown in your Shopify admin language (English, German, French or Italian; English for other languages).
+
 ## Review and edit
 
 The translations are saved in Shopify's own translation store, the same place Shopify's free **Translate & Adapt** app uses. To check or correct them:

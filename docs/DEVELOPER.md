@@ -21,6 +21,11 @@ app/
   supertext/
     client.server.ts        Supertext AI file translation client (same as the other plugins)
     html.server.ts          packs fields into one HTML document and back
+  i18n/
+    en.ts, de.ts, fr.ts, it.ts  interface strings (English is the source and fallback)
+    index.ts                locale from Shopify's ?locale=, translator, plural forms
+    react.tsx               I18nProvider / useI18n, rich() for links inside sentences
+    error.ts                LocalizedError: English message + code for the UI
   jobs.server.ts            job rows in the database, background runner
   settings.server.ts        per-shop settings, API key resolution
   version.server.ts         app version from package.json
@@ -30,6 +35,14 @@ scripts/start.mjs           production start: create database, migrate, serve
 test/                       Vitest unit tests with fake Shopify and fake Supertext
 shopify.app.toml            app configuration: client ID, URLs, scopes, webhooks
 ```
+
+## Interface languages
+
+The app's UI is in English, German, French and Italian and follows the merchant's admin language: Shopify adds `?locale=` (e.g. `de`, `fr-CA`) when it loads an embedded app. `app/routes/app.tsx` reads it once (`localeFromRequest`, falling back to `Accept-Language`, then English) and provides it to every page through `I18nProvider`; it sets `shouldRevalidate` to false because later requests from inside the app don't carry `?locale=`. The landing and login pages read it from their own request.
+
+- Strings live in `app/i18n/{en,de,fr,it}.ts`. `en.ts` defines the keys; the other files are typed `Messages`, so a missing key fails `npm run typecheck`, and `test/i18n.test.ts` checks that placeholders, URLs and "Supertext" are kept. **Every new or changed string gets all four languages in the same commit.** Formal address (Sie, vous, Lei), Shopify's own terms in each language (de *Kategorien*, *Blogbeiträge*; fr *boutique*; it *negozio*, *collezioni*), placeholders and URLs untranslated; French uses `\u00a0` before `? ! : ;`.
+- Plurals: keys ending in `.one` / `.other`, used with `tn(key, count)` (`Intl.PluralRules`).
+- Server errors shown in the UI are `LocalizedError`s (`SupertextError` is one): an English `message` for logs plus a `code` and `params` that select `error.<code>` in the message files; `detail` (Supertext's or Shopify's own text) is shown as it is. Job errors are stored with these fields in the job row, so the page translates them when it shows them. Actions return message keys, not text.
 
 ## How a translation runs
 

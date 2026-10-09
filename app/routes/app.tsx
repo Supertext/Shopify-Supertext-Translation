@@ -4,25 +4,44 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
 import { authenticate } from "../shopify.server";
+import { localeFromRequest } from "../i18n";
+import { I18nProvider, useI18n } from "../i18n/react";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
 
-  // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return {
+    // eslint-disable-next-line no-undef
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    // The admin language: Shopify adds ?locale= when it loads the app.
+    locale: localeFromRequest(request),
+  };
 };
 
+// Later requests from inside the app (navigation, form posts) don't carry
+// Shopify's ?locale=, so keep the language of the first load.
+export const shouldRevalidate = () => false;
+
 export default function App() {
-  const { apiKey } = useLoaderData<typeof loader>();
+  const { apiKey, locale } = useLoaderData<typeof loader>();
 
   return (
     <AppProvider apiKey={apiKey}>
-      <s-app-nav>
-        <s-link href="/app">Translate</s-link>
-        <s-link href="/app/settings">Settings</s-link>
-      </s-app-nav>
-      <Outlet />
+      <I18nProvider locale={locale}>
+        <AppNav />
+        <Outlet />
+      </I18nProvider>
     </AppProvider>
+  );
+}
+
+function AppNav() {
+  const { t } = useI18n();
+  return (
+    <s-app-nav>
+      <s-link href="/app">{t("nav.translate")}</s-link>
+      <s-link href="/app/settings">{t("nav.settings")}</s-link>
+    </s-app-nav>
   );
 }
 

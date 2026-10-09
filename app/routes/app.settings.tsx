@@ -22,9 +22,14 @@ import {
   normalizeCode,
   supertextCode,
 } from "../translation/language-codes";
+import type { ErrorInfo, MessageKey, MessageParams } from "../i18n";
+import { errorInfo } from "../i18n/error";
+import { ApiKeyHelp, useI18n } from "../i18n/react";
 
-const SIGNIN_URL = "https://www.supertext.com/person/en/account/signin";
-const API_KEY_URL = "https://www.supertext.com/en/integrations/api";
+/** What the action reports: a UI message key, or an error from Supertext. */
+type Result =
+  | { ok: boolean; key: MessageKey; params?: MessageParams }
+  | { ok: false; error: ErrorInfo };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -49,14 +54,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: ActionFunctionArgs): Promise<Result> => {
   const { session } = await authenticate.admin(request);
   const form = await request.formData();
   const intent = form.get("intent");
 
   if (intent === "remove") {
     await removeApiKey(session.shop);
-    return { ok: true, message: "The API key was removed." };
+    return { ok: true, key: "settings.removed" };
   }
 
   // Language codes: keep only the ones that differ from the suggestion.
@@ -80,44 +85,45 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     languageCodes,
   });
   if (invalid.length) {
-    return {
-      ok: false,
-      message: `Saved, except these language codes, which aren't valid codes like de-CH: ${invalid.join(", ")}.`,
-    };
+    return { ok: false, key: "settings.invalidCodes", params: { codes: invalid.join(", ") } };
   }
 
   if (intent === "test") {
     const settings = await getSettings(session.shop);
     if (!effectiveApiKey(settings)) {
-      return { ok: false, message: "No Supertext API key yet." };
+      return { ok: false, key: "settings.noKey" };
     }
     try {
       await supertextClient(settings).validate();
-      return { ok: true, message: "Saved. Supertext accepted the API key." };
+      return { ok: true, key: "settings.tested" };
     } catch (error) {
-      return { ok: false, message: (error as Error).message };
+      return { ok: false, error: errorInfo(error) };
     }
   }
-  return { ok: true, message: "Settings saved." };
+  return { ok: true, key: "settings.saved" };
 };
 
 export default function Settings() {
+  const i18n = useI18n();
+  const { t } = i18n;
   const data = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
   const busy = useNavigation().state === "submitting";
 
   return (
-    <s-page heading="Supertext settings">
+    <s-page heading={t("settings.heading")}>
       {result && (
         <s-banner tone={result.ok ? "success" : "critical"}>
-          <s-paragraph>{result.message}</s-paragraph>
+          <s-paragraph>
+            {"error" in result ? i18n.error(result.error) : t(result.key, result.params)}
+          </s-paragraph>
         </s-banner>
       )}
 
       <Form method="post">
-        <s-section heading="Supertext API key">
+        <s-section heading={t("settings.apiKey.heading")}>
           <label htmlFor="apiKey" style={{ display: "block", fontWeight: 600 }}>
-            API key
+            {t("settings.apiKey.label")}
           </label>
           <input
             id="apiKey"
@@ -126,38 +132,24 @@ export default function Settings() {
             autoComplete="off"
             placeholder={
               data.hasShopKey
-                ? "A key is saved. Enter a new one to replace it."
+                ? t("settings.apiKey.placeholderSaved")
                 : data.usesEnvironmentKey
-                  ? "Using the key set on the server."
-                  : "Paste your Supertext API key"
+                  ? t("settings.apiKey.placeholderServer")
+                  : t("settings.apiKey.placeholder")
             }
             style={inputStyle}
           />
           <s-paragraph>
-            No Supertext account yet?{" "}
-            <a href={SIGNIN_URL} target="_blank" rel="noopener noreferrer">
-              Create one at supertext.com
-            </a>
-            . Generate your API key at{" "}
-            <a href={API_KEY_URL} target="_blank" rel="noopener noreferrer">
-              supertext.com → Integrations → API
-            </a>{" "}
-            (requires the Admin role).
+            <ApiKeyHelp />
           </s-paragraph>
         </s-section>
 
-        <s-section heading="Languages">
-          <s-paragraph>
-            The language code Supertext uses for each of your shop&apos;s
-            languages. Supertext needs a region for the languages you
-            translate into, for example de-CH for Swiss German or fr-FR for
-            French as spoken in France. Your default language is translated
-            from.
-          </s-paragraph>
+        <s-section heading={t("settings.languages.heading")}>
+          <s-paragraph>{t("settings.languages.text")}</s-paragraph>
           {data.languages.map((l) => (
             <div key={l.locale} style={{ margin: "8px 0" }}>
               <label htmlFor={`code-${l.locale}`} style={{ display: "block", fontWeight: 600 }}>
-                {l.name} ({l.locale}){l.primary ? ", default language" : ""}
+                {l.name} ({l.locale}){l.primary ? t("settings.languages.default") : ""}
               </label>
               <input
                 id={`code-${l.locale}`}
@@ -173,9 +165,9 @@ export default function Settings() {
           ))}
         </s-section>
 
-        <s-section heading="Translation style">
+        <s-section heading={t("settings.style.heading")}>
           <label htmlFor="politeness" style={{ display: "block", fontWeight: 600 }}>
-            Form of address
+            {t("settings.style.label")}
           </label>
           <select
             id="politeness"
@@ -183,49 +175,45 @@ export default function Settings() {
             defaultValue={data.politeness}
             style={inputStyle}
           >
-            <option value="default">Let Supertext decide</option>
-            <option value="more">Formal (e.g. German “Sie”)</option>
-            <option value="less">Informal (e.g. German “du”)</option>
+            <option value="default">{t("settings.style.default")}</option>
+            <option value="more">{t("settings.style.more")}</option>
+            <option value="less">{t("settings.style.less")}</option>
           </select>
         </s-section>
 
         <s-section>
           <s-stack direction="inline" gap="base">
             <button type="submit" name="intent" value="save" disabled={busy} style={primary}>
-              Save
+              {t("settings.save")}
             </button>
             <button type="submit" name="intent" value="test" disabled={busy} style={secondary}>
-              Save and test connection
+              {t("settings.saveAndTest")}
             </button>
             {data.hasShopKey && (
               <button type="submit" name="intent" value="remove" disabled={busy} style={secondary}>
-                Remove API key
+                {t("settings.removeKey")}
               </button>
             )}
           </s-stack>
         </s-section>
       </Form>
 
-      <s-section slot="aside" heading="About">
+      <s-section slot="aside" heading={t("settings.about.heading")}>
         <s-paragraph>
           Supertext Translation{" "}
           {data.version ? (
             data.releaseUrl ? (
               <a href={data.releaseUrl} target="_blank" rel="noopener noreferrer">
-                version {data.version}
+                {t("settings.about.version", { version: data.version })}
               </a>
             ) : (
-              `version ${data.version}`
+              t("settings.about.version", { version: data.version })
             )
           ) : (
-            "(version unknown)"
+            t("settings.about.versionUnknown")
           )}
         </s-paragraph>
-        <s-paragraph>
-          Translations are written to Shopify&apos;s own translation store, so
-          you can review and edit them in Shopify&apos;s Translate &amp; Adapt
-          app.
-        </s-paragraph>
+        <s-paragraph>{t("settings.about.text")}</s-paragraph>
       </s-section>
     </s-page>
   );

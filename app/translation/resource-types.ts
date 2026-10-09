@@ -1,12 +1,12 @@
 // Shared by the server and the browser (no server-only code here).
 
-/** Resource types the app translates, in the order the UI shows them. */
+/** Resource types the app translates, in the order the UI shows them (labels: `resource.<value>` in app/i18n). */
 export const RESOURCE_TYPES = [
-  { value: "PRODUCT", label: "Products" },
-  { value: "COLLECTION", label: "Collections" },
-  { value: "PAGE", label: "Pages" },
-  { value: "ARTICLE", label: "Blog posts" },
-  { value: "BLOG", label: "Blogs" },
+  { value: "PRODUCT" },
+  { value: "COLLECTION" },
+  { value: "PAGE" },
+  { value: "ARTICLE" },
+  { value: "BLOG" },
 ] as const;
 
 export type ResourceType = (typeof RESOURCE_TYPES)[number]["value"];

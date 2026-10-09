@@ -8,6 +8,7 @@ import {
 import { chunkSegments, translateResource } from "../app/translation/translate.server";
 import { processJob } from "../app/translation/process.server";
 import type { AdminClient } from "../app/translation/shopify.server";
+import { SupertextError } from "../app/supertext/client.server";
 
 const product: ContentItem[] = [
   { key: "title", value: "Swiss chocolate", digest: "d-title", locale: "en", type: "SINGLE_LINE_TEXT_FIELD" },
@@ -130,8 +131,8 @@ describe("processJob", () => {
     );
     expect(result.written).toBe(6);
     expect(result.errors).toEqual([
-      { resource: "gid://shopify/Product/404", locale: "de", message: "The item no longer exists." },
-      { resource: "gid://shopify/Product/404", locale: "fr", message: "The item no longer exists." },
+      { resource: "gid://shopify/Product/404", locale: "de", message: "The item no longer exists.", code: "itemGone", params: {} },
+      { resource: "gid://shopify/Product/404", locale: "fr", message: "The item no longer exists.", code: "itemGone", params: {} },
     ]);
     expect(updates).toEqual([1, 2, 3, 4]);
     expect(registered.map((r) => r.translations[0].locale)).toEqual(["de", "fr"]);
@@ -144,7 +145,7 @@ describe("processJob", () => {
       admin,
       async () => {
         calls++;
-        throw new Error("Authentication failed. Please check the Supertext API key.");
+        throw new SupertextError("Authentication failed. Please check the Supertext API key.", "auth", { status: 401 });
       },
       { resourceIds: ["a", "b", "c"], locales: ["de", "fr"], overwrite: false },
       async () => undefined,
@@ -163,7 +164,11 @@ describe("refused languages", () => {
       admin,
       async (html, locale) => {
         calls.push(locale);
-        if (locale === "de") throw new Error('Supertext doesn\'t translate from "en" into "de". Set the Supertext code …');
+        if (locale === "de") {
+          throw new SupertextError('Supertext doesn\'t translate from "en" into "de". Set the Supertext code …', "languagePair", {
+            params: { source: "en", target: "de" },
+          });
+        }
         return fakeTranslate(html, locale);
       },
       { resourceIds: ["gid://shopify/Product/1", "gid://shopify/Product/2"], locales: ["de", "fr"], overwrite: false },

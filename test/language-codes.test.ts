@@ -38,8 +38,10 @@ describe("languagePairError", () => {
     const message = languagePairError(
       '{"error_code":"INVALID_LANGUAGE_PAIR","message":"…","source_lang":"en","target_lang":"de","politeness":null}',
     );
-    expect(message).toContain('from "en" into "de"');
-    expect(message).toContain("Settings → Languages");
+    expect(message?.message).toContain('from "en" into "de"');
+    expect(message?.message).toContain("Settings → Languages");
+    expect(message?.code).toBe("languagePair");
+    expect(message?.params).toEqual({ source: "en", target: "de" });
     expect(languagePairError('{"error_code":"OTHER"}')).toBeNull();
   });
 });

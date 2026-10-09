@@ -13,6 +13,7 @@ export interface AdminClient {
 }
 
 import type { ResourceType } from "./resource-types";
+import { LocalizedError } from "../i18n/error";
 
 export interface ShopLocale {
   locale: string;
@@ -32,11 +33,10 @@ async function run<T>(
     errors?: { message: string }[];
   };
   if (json.errors?.length) {
-    throw new Error(
-      `Shopify: ${json.errors.map((e) => e.message).join("; ")}`,
-    );
+    const reason = json.errors.map((e) => e.message).join("; ");
+    throw new LocalizedError(`Shopify: ${reason}`, "shopify", { reason });
   }
-  if (!json.data) throw new Error("Shopify returned no data.");
+  if (!json.data) throw new LocalizedError("Shopify returned no data.", "shopifyNoData");
   return json.data;
 }
 
@@ -150,8 +150,11 @@ export async function registerTranslations(
     );
     const errors = data.translationsRegister.userErrors;
     if (errors.length) {
-      throw new Error(
-        `Shopify rejected the translation: ${errors.map((e) => e.message).join("; ")}`,
+      const reason = errors.map((e) => e.message).join("; ");
+      throw new LocalizedError(
+        `Shopify rejected the translation: ${reason}`,
+        "shopifyRejected",
+        { reason },
       );
     }
   }

@@ -9,6 +9,7 @@ import {
   type JobError,
   type JobRequest,
 } from "./translation/process.server";
+import { errorInfo } from "./i18n/error";
 
 export type { JobError, JobRequest };
 
@@ -62,7 +63,7 @@ export async function startJob(shop: string, request: JobRequest): Promise<strin
         where: { id: job.id },
         data: {
           status: "failed",
-          errors: JSON.stringify([{ resource: "", locale: "", message: error.message }]),
+          errors: JSON.stringify([{ resource: "", locale: "", ...errorInfo(error) }]),
         },
       })
       .catch(() => undefined);

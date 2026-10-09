@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added: German, French and Italian interface. The app follows the Shopify admin language (`locale` parameter), English otherwise; errors from Supertext and Shopify are shown in that language too.
+- The *Authentication failed* message now also links to the Supertext sign-up page.
 - A **Settings** link at the top of the translate page and next to the languages, so Settings is easy to find on a phone, where the admin doesn't show the app's menu.
 - Settings → Languages: the Supertext code for each shop language, pre-filled with a regional default (de → de-DE, fr → fr-FR, en → en-US, …) and editable (e.g. de-CH). Fixes translations failing with *INVALID_LANGUAGE_PAIR*, because Supertext needs a region for the target language and Shopify uses bare codes like "de". The translate page shows the code each language is sent with.
 - A language Supertext refuses is now reported once per run, with a message pointing to Settings → Languages, instead of once per item.
