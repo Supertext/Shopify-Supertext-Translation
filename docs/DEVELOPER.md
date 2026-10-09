@@ -150,6 +150,8 @@ React Router majors are ignored too (`react-router` and all `@react-router/*`): 
 
 Prisma majors (`prisma`, `@prisma/client`) wait for `@shopify/shopify-app-session-storage-prisma`, whose 11.x releases require Prisma ^6. `@typescript-eslint/parser` and `@typescript-eslint/eslint-plugin` must always have the same version; Dependabot proposes their majors one at a time, which can't pass, so those majors are ignored and done by hand for both at once.
 
+React 19 (`react`, `react-dom` and their types) waits for `@shopify/app-bridge-react`, which supports React up to 18. ESLint 10 no longer reads `.eslintrc.cjs`: moving to a flat `eslint.config.js` comes first (see *Known limitations / roadmap*), then lift the `eslint` rule.
+
 ## Releasing
 
 `package.json` holds the version (the release workflow's `VERSION_FILES`); the settings page reads it at runtime.
@@ -162,6 +164,8 @@ Prisma majors (`prisma`, `@prisma/client`) wait for `@shopify/shopify-app-sessio
 Never tag or create releases by hand.
 
 ## Known limitations / roadmap
+
+- ESLint still uses the legacy `.eslintrc.cjs`; ESLint 10 needs a flat `eslint.config.js` (Dependabot ignores ESLint majors until then).
 
 - Jobs run inside the web process. A restart (every deploy) stops running jobs; on start, `scripts/start.mjs` marks them *failed* with "Interrupted by an app update", and the merchant starts them again (finished items are kept). A queue that resumes them comes later.
 - Only products, collections, pages, blog posts and blogs. Next: product options and values, metafields, metaobjects, menus, shop policies, theme texts.

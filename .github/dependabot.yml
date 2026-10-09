@@ -25,6 +25,18 @@ updates:
       # @typescript-eslint/parser and /eslint-plugin must share one version: update both by hand
       - dependency-name: "@typescript-eslint/*"
         update-types: ["version-update:semver-major"]
+      # @shopify/app-bridge-react peers react ^18 at most
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      # ESLint 10 drops .eslintrc: migrate to eslint.config.js first
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
