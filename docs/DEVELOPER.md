@@ -166,7 +166,6 @@ Never tag or create releases by hand.
 ## Known limitations / roadmap
 
 - ESLint still uses the legacy `.eslintrc.cjs`; ESLint 10 needs a flat `eslint.config.js` (Dependabot ignores ESLint majors until then).
-
 - Jobs run inside the web process. A restart (every deploy) stops running jobs; on start, `scripts/start.mjs` marks them *failed* with "Interrupted by an app update", and the merchant starts them again (finished items are kept). A queue that resumes them comes later.
 - Only products, collections, pages, blog posts and blogs. Next: product options and values, metafields, metaobjects, menus, shop policies, theme texts.
 - JSON rich-text fields (metafields of type rich text) and URL handles aren't translated.
