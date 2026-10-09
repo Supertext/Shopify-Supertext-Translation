@@ -60,6 +60,9 @@ export const de: Messages = {
   "job.kept": "{count} beibehalten",
 
   "settings.heading": "Supertext-Einstellungen",
+  "settings.keyUnreadable.heading": "API-Schlüssel erneut eingeben",
+  "settings.keyUnreadable.text": "Der gespeicherte Supertext-API-Schlüssel kann nicht mehr gelesen werden. Füge ihn unten erneut ein und speichere.",
+  "settings.encryptionMissing": "Der API-Schlüssel konnte nicht gespeichert werden, weil der Server der App nicht vollständig eingerichtet ist. Bitte wende dich an den Supertext-Support.",
   "settings.removed": "Der API-Schlüssel wurde entfernt.",
   "settings.invalidCodes":
     "Gespeichert, außer diesen Sprachcodes, die keine gültigen Codes wie de-CH sind: {codes}.",
@@ -110,6 +113,7 @@ export const de: Messages = {
     "Supertext übersetzt nicht von „{source}“ nach „{target}“. Legen Sie den Supertext-Code für diese Sprache unter Einstellungen → Sprachen mit einer Region fest (z. B. de-CH, fr-FR, en-US).",
   "error.languagePairUnknown":
     "Supertext übersetzt nicht in diese Sprache. Legen Sie den Supertext-Code für diese Sprache unter Einstellungen → Sprachen mit einer Region fest (z. B. de-CH, fr-FR, en-US).",
+  "error.interrupted": "Durch ein App-Update unterbrochen. Bitte starte die Übersetzung erneut; fertige Einträge bleiben erhalten.",
   "error.itemGone": "Das Element existiert nicht mehr.",
   "error.incomplete": "Supertext hat {returned} von {expected} Feldern zurückgegeben.",
   "error.shopify": "Shopify: {reason}",

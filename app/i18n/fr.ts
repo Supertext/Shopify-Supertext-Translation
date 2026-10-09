@@ -62,6 +62,9 @@ export const fr: Messages = {
   "job.kept": "{count} conservé(s)",
 
   "settings.heading": "Paramètres Supertext",
+  "settings.keyUnreadable.heading": "Saisissez à nouveau votre clé API",
+  "settings.keyUnreadable.text": "La clé API Supertext enregistrée ne peut plus être lue. Collez-la à nouveau ci-dessous et enregistrez.",
+  "settings.encryptionMissing": "La clé API n'a pas pu être enregistrée, car le serveur de l'application n'est pas entièrement configuré. Veuillez contacter le support Supertext.",
   "settings.removed": "La clé API a été supprimée.",
   "settings.invalidCodes":
     "Enregistré, sauf ces codes de langue, qui ne sont pas des codes valides comme de-CH\u00a0: {codes}.",
@@ -111,6 +114,7 @@ export const fr: Messages = {
     "Supertext ne traduit pas de «\u00a0{source}\u00a0» vers «\u00a0{target}\u00a0». Définissez le code Supertext de cette langue sous Paramètres → Langues, avec une région (p.\u00a0ex. de-CH, fr-FR, en-US).",
   "error.languagePairUnknown":
     "Supertext ne traduit pas vers cette langue. Définissez le code Supertext de cette langue sous Paramètres → Langues, avec une région (p.\u00a0ex. de-CH, fr-FR, en-US).",
+  "error.interrupted": "Interrompue par une mise à jour de l'application. Relancez la traduction ; les éléments terminés sont conservés.",
   "error.itemGone": "L’élément n’existe plus.",
   "error.incomplete": "Supertext a renvoyé {returned} champs sur {expected}.",
   "error.shopify": "Shopify\u00a0: {reason}",

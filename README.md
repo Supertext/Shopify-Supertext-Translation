@@ -16,6 +16,7 @@ Open **Apps → Supertext Translation**, pick products, collections, pages or bl
 | [Installation guide](docs/INSTALLATION.md) | Store owners and administrators: requirements, installing the app, API key, languages, settings, troubleshooting |
 | [User guide](docs/USER_GUIDE.md) | Staff: translating, reviewing, what gets translated |
 | [Developer guide](docs/DEVELOPER.md) | Architecture, Shopify and Supertext APIs, local development, tests, hosting, releases |
+| [App Store submission](docs/APP_STORE.md) | Review checklist, listing texts, reviewer instructions |
 
 You need a Supertext account and API key. No Supertext account yet? [Create one at supertext.com](https://www.supertext.com/person/en/account/signin). Generate your API key at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) (requires the Admin role).
 

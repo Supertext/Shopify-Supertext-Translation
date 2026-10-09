@@ -10,6 +10,7 @@ app/
     app.settings.tsx        API key, form of address, connection test, version
     webhooks.*.tsx          app/uninstalled, app/scopes_update, privacy compliance
     healthz.tsx             health check for Railway
+    privacy.tsx             public privacy policy (linked from the App Store listing)
     _index/, auth.*         landing and login pages from the template
   translation/
     shopify.server.ts       GraphQL Admin API calls (locales, resources, translationsRegister)
@@ -28,6 +29,7 @@ app/
     error.ts                LocalizedError: English message + code for the UI
   jobs.server.ts            job rows in the database, background runner
   settings.server.ts        per-shop settings, API key resolution
+  crypto.server.ts          AES-256-GCM encryption of stored API keys
   version.server.ts         app version from package.json
   shopify.server.ts         Shopify app setup (auth, sessions, API version)
 prisma/                     schema and migrations (PostgreSQL)
@@ -74,7 +76,7 @@ AI file translation API v1 at `https://api.supertext.com/v1/`, same as the WordP
 
 Header `Authorization: Supertext-Auth-Key <key>` (a pasted prefix is stripped). HTTP 429 is retried up to 4 times (`Retry-After`, else 1/2/4/8 s with jitter). `GET features` validates the key (*Save and test connection*).
 
-The API key is the shop's own (Settings, stored in `ShopSettings`), else the `SUPERTEXT_API_KEY` variable. `SUPERTEXT_API_ENDPOINT` points the app at a stand-in API.
+The API key is the shop's own (Settings, stored encrypted in `ShopSettings`; keys saved before encryption existed are encrypted on first read), else the `SUPERTEXT_API_KEY` variable. `SUPERTEXT_API_ENDPOINT` points the app at a stand-in API.
 
 ## Local development
 
@@ -112,6 +114,7 @@ The backend runs on Railway (project *supertext-cms-demos*, service **Shopify**)
 | `DATABASE_URL` | the shared Postgres service's URL |
 | `SHOPIFY_DB_NAME` | `shopify_supertext` (created on first start) |
 | `SUPERTEXT_API_KEY` | optional default key (the demo store) |
+| `SUPERTEXT_KEY_ENCRYPTION_KEY` | random string of at least 32 characters (e.g. `openssl rand -base64 48`). Encrypts the shops' Supertext API keys (AES-256-GCM, `app/crypto.server.ts`). Required: without it, keys can't be saved. If it changes, stored keys can't be read any more and shops are asked to enter theirs again; so never rotate it casually. |
 
 `scripts/start.mjs` creates `SHOPIFY_DB_NAME` on the Postgres server if needed, runs `prisma migrate deploy` and starts `react-router-serve`. When the URL changes, update `application_url` and `redirect_urls` in `shopify.app.toml` and deploy the configuration (next section).
 
@@ -150,11 +153,11 @@ Never tag or create releases by hand.
 
 ## Known limitations / roadmap
 
-- Jobs run inside the web process: a restart during a job leaves it *running*. A queue (or resuming unfinished jobs on start) comes later; with one Railway instance this is rare.
+- Jobs run inside the web process. A restart (every deploy) stops running jobs; on start, `scripts/start.mjs` marks them *failed* with "Interrupted by an app update", and the merchant starts them again (finished items are kept). A queue that resumes them comes later.
 - Only products, collections, pages, blog posts and blogs. Next: product options and values, metafields, metaobjects, menus, shop policies, theme texts.
 - JSON rich-text fields (metafields of type rich text) and URL handles aren't translated.
 - Up to 50 items per run (one page of the list); selecting across pages and "translate everything" come later.
 - An admin action on the product and collection pages (*Translate with Supertext* in the **More actions** menu) would save a trip to the app.
-- No App Store listing yet: needs a listing, privacy policy, and Shopify's review.
-- The API key is stored as plain text in the app's database (per shop); encrypt it before a public listing.
+- Not in the App Store yet: see [APP_STORE.md](APP_STORE.md) for the submission checklist, listing texts and reviewer instructions.
+- The backend runs in Railway's US region; moving it to the EU region is an open question (see APP_STORE.md).
 - The demo store is set up by hand; screenshots for the guides follow once it exists.

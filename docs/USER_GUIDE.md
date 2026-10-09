@@ -58,6 +58,7 @@ Errors appear in red under the translation in **Recent translations**, with the 
 | --- | --- |
 | *Done, with errors* | Some items were translated, others not. The red lines say why; translate those again. |
 | *Supertext doesn't translate from "en" into "de"* | The language needs a regional Supertext code. Ask your administrator to set it under Settings → Languages (e.g. `de-CH`). |
+| *Interrupted by an app update* | The app was updated while your translation ran. Start it again; finished items are kept. |
 | *The item no longer exists* | It was deleted after you selected it. |
 | *Supertext returned 2 of 3 fields* | Supertext's answer was incomplete, so nothing was saved for that item. Translate it again. |
 | *Authentication failed …* | The API key is wrong. Ask your administrator to check Settings. |

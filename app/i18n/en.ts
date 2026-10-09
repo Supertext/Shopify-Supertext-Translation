@@ -67,6 +67,9 @@ export const en = {
 
   // Settings page
   "settings.heading": "Supertext settings",
+  "settings.keyUnreadable.heading": "Enter your API key again",
+  "settings.keyUnreadable.text": "The saved Supertext API key can no longer be read. Paste it again below and save.",
+  "settings.encryptionMissing": "The API key could not be saved because the app's server isn't fully set up. Please contact Supertext support.",
   "settings.removed": "The API key was removed.",
   "settings.invalidCodes":
     "Saved, except these language codes, which aren't valid codes like de-CH: {codes}.",
@@ -116,6 +119,7 @@ export const en = {
     "Supertext doesn't translate from \"{source}\" into \"{target}\". Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).",
   "error.languagePairUnknown":
     "Supertext doesn't translate into this language. Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).",
+  "error.interrupted": "Interrupted by an app update. Please start the translation again; finished items are kept.",
   "error.itemGone": "The item no longer exists.",
   "error.incomplete": "Supertext returned {returned} of {expected} fields.",
   "error.shopify": "Shopify: {reason}",

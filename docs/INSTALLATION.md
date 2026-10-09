@@ -36,7 +36,7 @@ It can't change your products, prices, orders or customers, and it doesn't read 
 2. Paste the key into **API key**. A key copied with its `Supertext-Auth-Key ` prefix works too.
 3. Click **Save and test connection**. The page shows *Supertext accepted the API key*.
 
-The key is stored for your store only and never shown again. To replace it, paste a new one and save; **Remove API key** deletes it.
+The key is stored encrypted, for your store only, and never shown again. To replace it, paste a new one and save; **Remove API key** deletes it.
 
 ## Set up languages
 
@@ -79,6 +79,10 @@ The app's own screens (Translate, Settings, messages and errors) are available i
 
 Supertext updates the app for all stores; you don't need to do anything. If a new version needs more permissions, Shopify asks you to approve them the next time you open the app. The installed version is shown under **Settings → About**.
 
+## Privacy
+
+The app's privacy policy: https://shopify-production-d86d.up.railway.app/privacy. In short: it reads only your shop's texts and languages (no customer or order data), sends the selected texts to Supertext for translation, and stores your API key encrypted.
+
 ## Uninstalling
 
 Open **Settings → Apps and sales channels**, choose **Supertext Translation** and click **Uninstall**. The translations the app created stay in your shop, and you can keep editing them in Shopify. 48 hours after uninstalling, Shopify tells the app to delete everything it kept for your store (your API key and the list of past translations), and it does.
@@ -94,6 +98,8 @@ Open **Settings → Apps and sales channels**, choose **Supertext Translation** 
 | *Too many requests to Supertext* | Supertext received too many requests at once and the app's automatic retries ran out. Start the translation again. |
 | *Add a second language* | Your shop has only one language. Add one under Settings → Languages. |
 | Translations don't show in the shop | Publish the language under Settings → Languages, and check that the shop's theme has a language selector. |
+| *Enter your API key again* (Settings) | The saved key can no longer be read, for example after a server change. Paste the key again and save. |
+| *Interrupted by an app update* | The app was updated while the translation ran. Start it again; items that were finished are kept. |
 | The app doesn't load | Reload the admin page. If it still doesn't load, contact Supertext; the app's server may be down. |
 
 ## Screenshots

@@ -15,6 +15,7 @@ import {
   toPoliteness,
 } from "../settings.server";
 import { appVersion, releaseUrl } from "../version.server";
+import { EncryptionKeyMissing } from "../crypto.server";
 import { shopLocales } from "../translation/shopify.server";
 import {
   defaultSupertextCode,
@@ -46,7 +47,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       code: supertextCode(l.locale, settings.languageCodes),
       suggested: defaultSupertextCode(l.locale),
     })),
-    hasShopKey: settings.apiKey !== "",
+    hasShopKey: settings.apiKey !== "" || settings.apiKeyUnreadable,
+    apiKeyUnreadable: settings.apiKeyUnreadable,
     usesEnvironmentKey: settings.apiKey === "" && effectiveApiKey(settings) !== "",
     politeness: settings.politeness,
     version,
@@ -79,11 +81,19 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Result> =
     languageCodes[locale] = code;
   }
 
-  await saveSettings(session.shop, {
-    apiKey: String(form.get("apiKey") ?? ""),
-    politeness: toPoliteness(form.get("politeness")),
-    languageCodes,
-  });
+  try {
+    await saveSettings(session.shop, {
+      apiKey: String(form.get("apiKey") ?? ""),
+      politeness: toPoliteness(form.get("politeness")),
+      languageCodes,
+    });
+  } catch (error) {
+    if (error instanceof EncryptionKeyMissing) {
+      console.error(`[supertext] ${error.message}`);
+      return { ok: false, key: "settings.encryptionMissing" as const };
+    }
+    throw error;
+  }
   if (invalid.length) {
     return { ok: false, key: "settings.invalidCodes", params: { codes: invalid.join(", ") } };
   }
@@ -112,6 +122,11 @@ export default function Settings() {
 
   return (
     <s-page heading={t("settings.heading")}>
+      {data.apiKeyUnreadable && (
+        <s-banner tone="warning" heading={t("settings.keyUnreadable.heading")}>
+          <s-paragraph>{t("settings.keyUnreadable.text")}</s-paragraph>
+        </s-banner>
+      )}
       {result && (
         <s-banner tone={result.ok ? "success" : "critical"}>
           <s-paragraph>

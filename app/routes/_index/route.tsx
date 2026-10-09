@@ -1,7 +1,6 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { redirect, Form, useLoaderData } from "react-router";
 
-import { login } from "../../shopify.server";
 import { localeFromRequest, translator } from "../../i18n";
 
 import styles from "./styles.module.css";
@@ -13,7 +12,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
-  return { showForm: Boolean(login), locale: localeFromRequest(request) };
+  // App Store rule 2.3.1: never ask merchants to type their shop domain.
+  // Installs start from the Shopify App Store or the admin instead.
+  return { showForm: false, locale: localeFromRequest(request) };
 };
 
 export default function App() {
