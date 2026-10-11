@@ -78,6 +78,16 @@ Header `Authorization: Supertext-Auth-Key <key>` (a pasted prefix is stripped). 
 
 The API key is the shop's own (Settings, stored encrypted in `ShopSettings`; keys saved before encryption existed are encrypted on first read), else the `SUPERTEXT_API_KEY` variable. `SUPERTEXT_API_ENDPOINT` points the app at a stand-in API.
 
+## Language codes
+
+Supertext wants the **source** as a bare language (`en`) and the **target** as a regional code (`de-DE`, `fr-CH`, `en-US`); a bare target such as `de` is rejected with `INVALID_LANGUAGE_PAIR`. `app/translation/language-codes.ts` turns Shopify locales into Supertext codes:
+
+- **Target** (`supertextCode`): the shop's own code (Settings → Languages, stored only where it differs from the default), else the locale if it has a region, normalized (`pt-br` → `pt-BR`; scripts and numeric regions such as `zh-Hant`, `es-419` keep their form), else a default region: ar-SA, bg-BG, cs-CZ, da-DK, de-DE, el-GR, en-US, es-ES, et-EE, fi-FI, fr-FR, hr-HR, hu-HU, it-IT, ja-JP, ko-KR, lt-LT, lv-LV, nb-NO, nl-NL, pl-PL, pt-PT, ro-RO, ru-RU, sk-SK, sl-SI, sr-RS, sv-SE, th-TH, tr-TR, uk-UA, vi-VN, zh-CN. Unknown bare codes are sent unchanged, so Supertext's error names them.
+- **Source:** the shop's primary locale, sent as the bare language; the client strips any region (`en-US` → `en`).
+- Translating within one language (`en` → `en-GB`) is allowed.
+
+The unit tests (`test/language-codes.test.ts`, `test/client.test.ts`) cover the mapping and the source stripping.
+
 ## Local development
 
 Requirements: Node.js 22.12+, a PostgreSQL database, the [Shopify CLI](https://shopify.dev/docs/apps/tools/cli) and access to the app in the Dev Dashboard.

@@ -74,6 +74,7 @@ AI file translation API v1, same as the WordPress plugin: POST HTML file → pol
 
 - **Auth header:** `Authorization: Supertext-Auth-Key <key>`. Strip a pasted `Supertext-Auth-Key ` prefix and always send exactly one.
 - **Rate limit:** HTTP 429 `RATE_LIMIT_EXCEEDED`; retry up to 4 times (`Retry-After`, else 1/2/4/8 s with jitter). Translate languages one after the other.
+- **Language codes:** source = bare language (`en`), target = regional code (`de-DE`, `en-US`); Supertext rejects bare targets (`INVALID_LANGUAGE_PAIR`). Bare Shopify locales get a regional default; see `docs/DEVELOPER.md` → *Language codes*.
 - **Rich text:** each element carrying `data-st-id` is translated on its own. Send a whole field (or paragraph) as **one** `data-st-id` element with formatting and links as inline tags; never one per formatted run.
 
 ## Railway lessons
