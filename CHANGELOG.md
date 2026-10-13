@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The app now talks to Supertext through the Supertext SDK for TypeScript (version 0.1.0, bundled in `vendor/supertext-sdk/` until it is on npm), instead of its own client. Same behaviour for merchants; requests now identify the app (`Shopify-Supertext-Translation/<version>`).
 - The app server now runs in the EU (Amsterdam), like its database; the privacy policy says so.
 - Added: German, French and Italian interface. The app follows the Shopify admin language (`locale` parameter), English otherwise; errors from Supertext and Shopify are shown in that language too.
 - The *Authentication failed* message now also links to the Supertext sign-up page.

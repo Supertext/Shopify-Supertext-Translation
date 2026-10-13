@@ -1,5 +1,6 @@
 import type { AdminClient } from "./shopify.server";
-import { translateResource, type TranslateDocument } from "./translate.server";
+import { translateResource, type TranslateTexts } from "./translate.server";
+import { FATAL_CODES as FATAL, REFUSED_CODES as REFUSED } from "../supertext/client.server";
 import { errorInfo, type ErrorInfo } from "../i18n/error";
 
 export interface JobRequest {
@@ -14,10 +15,6 @@ export interface JobError extends ErrorInfo {
   locale: string;
 }
 
-/** Errors that fail every item the same way: a bad key or an exhausted limit. */
-const FATAL = new Set(["auth", "limitExceeded", "noApiKey"]);
-/** Supertext refused the language (wrong code): reported once, then the language is skipped. */
-const REFUSED = new Set(["languagePair", "languagePairUnknown"]);
 
 export interface Progress {
   completed: number;
@@ -32,7 +29,7 @@ export interface Progress {
  */
 export async function processJob(
   admin: AdminClient,
-  translate: TranslateDocument,
+  translate: TranslateTexts,
   request: JobRequest,
   onProgress: (progress: Progress) => Promise<void>,
 ): Promise<Progress> {

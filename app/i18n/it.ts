@@ -114,6 +114,7 @@ export const it: Messages = {
   "error.languagePairUnknown":
     "Supertext non traduce in questa lingua. Imposti il codice Supertext di questa lingua in Impostazioni → Lingue, con una regione (ad es. de-CH, fr-FR, en-US).",
   "error.interrupted": "Interrotta da un aggiornamento dell'app. Avvia di nuovo la traduzione; gli elementi completati vengono mantenuti.",
+  "error.incompleteResponse": "La traduzione di Supertext è incompleta.",
   "error.itemGone": "L'elemento non esiste più.",
   "error.incomplete": "Supertext ha restituito {returned} campi su {expected}.",
   "error.shopify": "Shopify: {reason}",

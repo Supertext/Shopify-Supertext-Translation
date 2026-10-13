@@ -16,6 +16,7 @@ import {
 } from "../settings.server";
 import { appVersion, releaseUrl } from "../version.server";
 import { EncryptionKeyMissing } from "../crypto.server";
+import { localizeError } from "../supertext/client.server";
 import { shopLocales } from "../translation/shopify.server";
 import {
   defaultSupertextCode,
@@ -104,10 +105,10 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Result> =
       return { ok: false, key: "settings.noKey" };
     }
     try {
-      await supertextClient(settings).validate();
+      await supertextClient(settings).validateApiKey();
       return { ok: true, key: "settings.tested" };
     } catch (error) {
-      return { ok: false, error: errorInfo(error) };
+      return { ok: false, error: errorInfo(localizeError(error)) };
     }
   }
   return { ok: true, key: "settings.saved" };

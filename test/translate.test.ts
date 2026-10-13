@@ -5,10 +5,11 @@ import {
   type ContentItem,
   type ExistingTranslation,
 } from "../app/translation/fields.server";
-import { chunkSegments, translateResource } from "../app/translation/translate.server";
+import { translateResource } from "../app/translation/translate.server";
 import { processJob } from "../app/translation/process.server";
 import type { AdminClient } from "../app/translation/shopify.server";
-import { SupertextError } from "../app/supertext/client.server";
+import { LocalizedError } from "../app/i18n/error";
+import { fakeSupertext, prefixSegments } from "./fake-supertext";
 
 const product: ContentItem[] = [
   { key: "title", value: "Swiss chocolate", digest: "d-title", locale: "en", type: "SINGLE_LINE_TEXT_FIELD" },
@@ -43,12 +44,6 @@ function fakeAdmin(translations: ExistingTranslation[] = []) {
   return { admin, registered };
 }
 
-/** A stand-in Supertext: prefixes each segment's text with the locale. */
-const fakeTranslate = async (html: string, locale: string) =>
-  html.replace(/(<div data-st-id="\d+">)([\s\S]*?)(<\/div>)/g, (_m, open, inner, close) =>
-    `${open}${inner.replace(/>([^<]+)</g, `>[${locale}] $1<`).replace(/^([^<]+)/, `[${locale}] $1`)}${close}`,
-  );
-
 describe("selectFields", () => {
   it("sends text and HTML fields, skips handles, empty values and unsupported types", () => {
     const selection = selectFields(product, [], false);
@@ -76,15 +71,24 @@ describe("selectFields", () => {
 describe("translateResource", () => {
   it("translates the fields and registers them with their digests", async () => {
     const { admin, registered } = fakeAdmin();
-    const result = await translateResource(admin, fakeTranslate, "gid://shopify/Product/1", "de", false);
+    const supertext = fakeSupertext();
+    const result = await translateResource(admin, supertext.translate, "gid://shopify/Product/1", "de", false);
 
     expect(result).toEqual({ written: 3, skipped: 0 });
+    // One document for all fields; the SDK sends the regional code and deletes the file.
+    expect(supertext.requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      "POST translate/ai/file",
+      "GET translate/ai/file/f1/status",
+      "GET translate/ai/file/f1/translation",
+      "DELETE translate/ai/file/f1",
+    ]);
+    expect(supertext.requests[0].targetLang).toBe("de-DE");
     const byKey = Object.fromEntries(registered[0].translations.map((t) => [t.key, t]));
-    expect(byKey.title).toMatchObject({ value: "[de] Swiss chocolate", locale: "de", translatableContentDigest: "d-title" });
+    expect(byKey.title).toMatchObject({ value: "[de-DE] Swiss chocolate", locale: "de", translatableContentDigest: "d-title" });
     // Markup and links survive, line breaks in plain text too.
     expect(byKey.body_html.value).toContain('<a href="/pages/about">');
-    expect(byKey.body_html.value).toContain("<b>[de] Zurich</b>");
-    expect(byKey.meta_description.value).toBe("[de] Line one\nLine two");
+    expect(byKey.body_html.value).toContain("<b>[de-DE] Zurich</b>");
+    expect(byKey.meta_description.value).toBe("[de-DE] Line one\nLine two");
   });
 
   it("does nothing when everything is already translated", async () => {
@@ -93,29 +97,20 @@ describe("translateResource", () => {
       { key: "body_html", value: "x", outdated: false },
       { key: "meta_description", value: "x", outdated: false },
     ]);
-    let calls = 0;
-    const result = await translateResource(admin, async (h) => (calls++, h), "gid://shopify/Product/1", "fr", false);
+    const supertext = fakeSupertext();
+    const result = await translateResource(admin, supertext.translate, "gid://shopify/Product/1", "fr", false);
     expect(result).toEqual({ written: 0, skipped: 3 });
-    expect(calls).toBe(0);
+    expect(supertext.requests).toHaveLength(0);
     expect(registered).toHaveLength(0);
   });
 
   it("refuses to write a partial result", async () => {
     const { admin, registered } = fakeAdmin();
+    const supertext = fakeSupertext(() => '<div data-st-id="0">Nur Titel</div>');
     await expect(
-      translateResource(admin, async () => '<div data-st-id="0">Nur Titel</div>', "gid://shopify/Product/1", "de", false),
-    ).rejects.toThrow(/returned 1 of 3/);
+      translateResource(admin, supertext.translate, "gid://shopify/Product/1", "de", false),
+    ).rejects.toMatchObject({ code: "incomplete_response" });
     expect(registered).toHaveLength(0);
-  });
-});
-
-describe("chunkSegments", () => {
-  it("keeps documents under the size limit and preserves the order", () => {
-    const segments = Array.from({ length: 5 }, (_, i) => ({ text: "x".repeat(60) + i, html: false }));
-    const chunks = chunkSegments(segments, 250);
-    expect(chunks.length).toBeGreaterThan(1);
-    expect(chunks.flatMap((c) => c.segments)).toEqual(segments);
-    expect(chunks.map((c) => c.offset)).toEqual(chunks.map((_c, i) => chunks.slice(0, i).reduce((n, c) => n + c.segments.length, 0)));
   });
 });
 
@@ -125,7 +120,7 @@ describe("processJob", () => {
     const updates: number[] = [];
     const result = await processJob(
       admin,
-      fakeTranslate,
+      fakeSupertext().translate,
       { resourceIds: ["gid://shopify/Product/1", "gid://shopify/Product/404"], locales: ["de", "fr"], overwrite: false },
       async (p) => void updates.push(p.completed),
     );
@@ -145,7 +140,7 @@ describe("processJob", () => {
       admin,
       async () => {
         calls++;
-        throw new SupertextError("Authentication failed. Please check the Supertext API key.", "auth", { status: 401 });
+        throw new LocalizedError("Authentication failed.", "auth");
       },
       { resourceIds: ["a", "b", "c"], locales: ["de", "fr"], overwrite: false },
       async () => undefined,
@@ -162,14 +157,12 @@ describe("refused languages", () => {
     const calls: string[] = [];
     const result = await processJob(
       admin,
-      async (html, locale) => {
+      async (segments, locale) => {
         calls.push(locale);
         if (locale === "de") {
-          throw new SupertextError('Supertext doesn\'t translate from "en" into "de". Set the Supertext code …', "languagePair", {
-            params: { source: "en", target: "de" },
-          });
+          throw new LocalizedError('Supertext doesn\'t translate from "en" into "de".', "languagePair", { source: "en", target: "de" });
         }
-        return fakeTranslate(html, locale);
+        return fakeSupertext(prefixSegments).translate(segments, locale);
       },
       { resourceIds: ["gid://shopify/Product/1", "gid://shopify/Product/2"], locales: ["de", "fr"], overwrite: false },
       async () => undefined,

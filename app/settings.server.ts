@@ -1,5 +1,6 @@
 import prisma from "./db.server";
-import { SupertextClient, type Politeness } from "./supertext/client.server";
+import { createClient, type Politeness, type SupertextClient } from "./supertext/client.server";
+import { appVersion } from "./version.server";
 import {
   decryptSecret,
   encryptionConfigured,
@@ -98,8 +99,9 @@ export const effectiveApiKey = (settings: Settings): string =>
   settings.apiKey || process.env.SUPERTEXT_API_KEY?.trim() || "";
 
 export const supertextClient = (settings: Settings): SupertextClient =>
-  new SupertextClient({
+  createClient({
     apiKey: effectiveApiKey(settings),
     // A stand-in API for tests and screenshots; the live API otherwise.
-    endpoint: process.env.SUPERTEXT_API_ENDPOINT || undefined,
+    baseUrl: process.env.SUPERTEXT_API_ENDPOINT || undefined,
+    userAgent: `Shopify-Supertext-Translation/${appVersion() ?? "dev"}`,
   });

@@ -7,7 +7,8 @@ import {
   resolveLocale,
   translator,
 } from "../app/i18n";
-import { SupertextClient } from "../app/supertext/client.server";
+import { localizeError } from "../app/supertext/client.server";
+import { fakeSupertext } from "./fake-supertext";
 import { errorInfo } from "../app/i18n/error";
 
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
@@ -62,11 +63,8 @@ describe("translator", () => {
   });
 
   it("translates errors from the server and keeps Supertext's own detail", async () => {
-    const client = new SupertextClient({
-      apiKey: "bad",
-      fetch: async () => new Response("bad key", { status: 401 }),
-    });
-    const info = errorInfo(await client.validate().catch((error) => error));
+    const { client } = fakeSupertext(undefined, { status: 401, body: "bad key" });
+    const info = errorInfo(localizeError(await client.validateApiKey().catch((error: unknown) => error)));
     expect(info.code).toBe("auth");
     expect(translator("de").error(info)).toMatch(/^Authentifizierung fehlgeschlagen\..*\(bad key\)$/);
     expect(translator("it").error({ message: "Something else" })).toBe("Something else");

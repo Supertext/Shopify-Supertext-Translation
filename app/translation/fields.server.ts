@@ -1,4 +1,4 @@
-import type { Segment } from "../supertext/html.server";
+import type { Segment } from "../../vendor/supertext-sdk/html-document";
 
 /** One translatable field as Shopify returns it (`translatableContent`). */
 export interface ContentItem {

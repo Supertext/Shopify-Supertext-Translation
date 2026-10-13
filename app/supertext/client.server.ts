@@ -1,241 +1,124 @@
 /**
- * Supertext AI file translation (https://api.supertext.com/v1/).
+ * The app's connection to Supertext: the bundled Supertext SDK
+ * (vendor/supertext-sdk) plus the mapping of its error codes to the app's
+ * translated messages (`error.<code>` in app/i18n).
  *
- * Same protocol as the Supertext WordPress and TYPO3 plugins: submit one HTML
- * document, poll its status, download the translation, delete the file.
+ * The SDK does the protocol: auth header, multipart upload, polling, 429
+ * retries, deleting files, packing segments into documents, language codes.
  */
+import {
+  SupertextClient,
+  SupertextError,
+  type Politeness,
+  type SegmentInput,
+} from "../../vendor/supertext-sdk/index";
+import { LocalizedError, type MessageParams } from "../i18n/error";
 
-import { LocalizedError, type MessageParams } from '../i18n/error';
-
-export const LIVE_ENDPOINT = 'https://api.supertext.com/v1/';
-
-/** Stay well below the API's 1,000,000 character limit per document. */
-export const MAX_DOCUMENT_CHARACTERS = 900_000;
-
-export type Politeness = 'default' | 'more' | 'less';
+export { SupertextClient, SupertextError };
+export type { Politeness, SegmentInput };
 
 export interface ClientOptions {
   apiKey: string;
-  endpoint?: string;
-  pollIntervalMs?: number;
-  pollTimeoutMs?: number;
-  /** Injected for tests. */
-  fetch?: typeof fetch;
-  /** Injected for tests. */
+  /** Default: the live API. */
+  baseUrl?: string;
+  /** e.g. "Shopify-Supertext-Translation/0.1.0", appended to the SDK's User-Agent. */
+  userAgent?: string;
+  /** Tests: HTTP and sleep implementations. */
+  fetch?: (input: string, init: RequestInit) => Promise<Response>;
   sleep?: (ms: number) => Promise<void>;
+  pollIntervalMs?: number;
 }
 
-/** Retries after HTTP 429 (the API limits requests per second), e.g. when several languages start at once. */
-export const RATE_LIMIT_RETRIES = 4;
-
-/** Wait before retry `attempt` (0-based): the Retry-After header if present, else 1 s, 2 s, 4 s, 8 s plus jitter. */
-export function retryDelayMs(attempt: number, retryAfter: string | null): number {
-  const seconds = Number(retryAfter);
-  if (retryAfter && Number.isFinite(seconds) && seconds >= 0) {
-    return Math.min(30_000, seconds * 1000);
-  }
-  return 1000 * 2 ** attempt + Math.floor(Math.random() * 250);
+export function createClient(options: ClientOptions): SupertextClient {
+  return new SupertextClient(options.apiKey, {
+    ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
+    ...(options.userAgent ? { userAgent: options.userAgent } : {}),
+    ...(options.fetch ? { fetch: options.fetch } : {}),
+    ...(options.sleep ? { sleep: options.sleep } : {}),
+    ...(options.pollIntervalMs !== undefined ? { pollIntervalMs: options.pollIntervalMs } : {}),
+  });
 }
 
-export interface TranslateOptions {
-  /** BCP-47 target, e.g. "de-CH". */
-  targetLanguage: string;
-  /** Any form ("en", "en-US"); only the primary subtag is sent. Empty = auto-detect. */
-  sourceLanguage?: string;
-  politeness?: Politeness;
-}
+const AUTH_HINT =
+  " No Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (requires the Admin role).";
 
 /**
- * `message` is English (logs, tests); `code` and `params` select the
- * `error.<code>` text the UI shows in the merchant's language.
+ * The SDK's error as a LocalizedError the UI can show in the merchant's
+ * language. Other errors pass through unchanged.
  */
-export class SupertextError extends LocalizedError {
-  constructor(
-    message: string,
-    code: string,
-    options: { params?: MessageParams; status?: number; detail?: string } = {}
-  ) {
-    super(message, code, options.params, options.detail);
-    this.name = 'SupertextError';
-    this.status = options.status;
-  }
-
-  public readonly status?: number;
-}
-
-export class SupertextClient {
-  private readonly endpoint: string;
-  private readonly pollIntervalMs: number;
-  private readonly pollTimeoutMs: number;
-  private readonly fetchFn: typeof fetch;
-  private readonly sleep: (ms: number) => Promise<void>;
-
-  constructor(private readonly options: ClientOptions) {
-    if (!options.apiKey) {
-      throw new SupertextError('No Supertext API key configured.', 'noApiKey');
-    }
-    this.endpoint = (options.endpoint || LIVE_ENDPOINT).replace(/\/+$/, '') + '/';
-    this.pollIntervalMs = Math.max(250, options.pollIntervalMs ?? 2000);
-    this.pollTimeoutMs = Math.max(5000, options.pollTimeoutMs ?? 180_000);
-    this.fetchFn = options.fetch ?? fetch;
-    this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-  }
-
-  /** Translates a complete HTML document and returns the translated HTML. */
-  async translateDocument(html: string, options: TranslateOptions): Promise<string> {
-    const fileId = await this.submit(html, options);
-    try {
-      await this.waitUntilDone(fileId);
-      return await this.download(fileId);
-    } finally {
-      await this.request('DELETE', `translate/ai/file/${encodeURIComponent(fileId)}`).catch(() => undefined);
-    }
-  }
-
-  /** Cost-free check that the key is valid and the API reachable. */
-  async validate(): Promise<void> {
-    await this.request('GET', 'features');
-  }
-
-  private async submit(html: string, options: TranslateOptions): Promise<string> {
-    const form = new FormData();
-    form.append('target_lang', options.targetLanguage);
-    const source = (options.sourceLanguage || '').split(/[-_]/)[0].toLowerCase();
-    if (source) {
-      // A full tag like "de-CH" as source is rejected with INVALID_LANGUAGE_PAIR.
-      form.append('source_lang', source);
-    }
-    if (options.politeness === 'more' || options.politeness === 'less') {
-      form.append('politeness', options.politeness);
-    }
-    // The part's type must be exactly "text/html" (no charset), otherwise 415.
-    form.append('file', new Blob([html], { type: 'text/html' }), 'content.html');
-
-    const response = await this.request('POST', 'translate/ai/file', form);
-    const data = (await response.json().catch(() => ({}))) as { file_id?: string };
-    if (!data.file_id) {
-      throw new SupertextError('Supertext did not return a file id.', 'noFileId');
-    }
-    return data.file_id;
-  }
-
-  private async waitUntilDone(fileId: string): Promise<void> {
-    const deadline = Date.now() + this.pollTimeoutMs;
-    do {
-      const response = await this.request('GET', `translate/ai/file/${encodeURIComponent(fileId)}/status`);
-      const { status } = (await response.json().catch(() => ({}))) as { status?: string };
-      switch (status) {
-        case 'done':
-          return;
-        case 'error':
-          throw new SupertextError('Supertext failed to translate the document.', 'translationFailed');
-        case 'limit_exceeded':
-          throw new SupertextError('Your Supertext translation limit is exceeded.', 'limitExceeded');
-        case 'deleted':
-          throw new SupertextError('The Supertext file was deleted before it could be downloaded.', 'fileDeleted');
+export function localizeError(error: unknown): unknown {
+  if (!(error instanceof SupertextError)) return error;
+  const params: MessageParams = {};
+  let code: string;
+  let message = error.message;
+  let detail = error.detail;
+  switch (error.code) {
+    case "missing_api_key":
+      code = "noApiKey";
+      break;
+    case "authentication_failure":
+      code = "auth";
+      message += AUTH_HINT;
+      break;
+    case "invalid_language_pair":
+      // The API's raw JSON isn't useful to merchants; the message says what to do.
+      detail = undefined;
+      if (error.sourceLang && error.targetLang) {
+        code = "languagePair";
+        params.source = error.sourceLang;
+        params.target = error.targetLang;
+        message = `Supertext doesn't translate from "${error.sourceLang}" into "${error.targetLang}". Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).`;
+      } else {
+        code = "languagePairUnknown";
       }
-      await new Promise((resolve) => setTimeout(resolve, this.pollIntervalMs));
-    } while (Date.now() < deadline);
-    throw new SupertextError('Timed out waiting for the Supertext translation.', 'timeout');
+      break;
+    case "not_found":
+      code = "notFound";
+      break;
+    case "payload_too_large":
+      code = "tooLarge";
+      break;
+    case "too_many_requests":
+      code = "rateLimited";
+      break;
+    case "service_unavailable":
+      code = "unavailable";
+      break;
+    case "unexpected_status":
+      code = "http";
+      params.status = error.status ?? 0;
+      break;
+    case "transport_error":
+      code = "unreachable";
+      params.reason = error.detail ?? "";
+      detail = undefined;
+      break;
+    case "no_file_id":
+      code = "noFileId";
+      break;
+    case "translation_error":
+      code = "translationFailed";
+      break;
+    case "quota_exceeded":
+      code = "limitExceeded";
+      break;
+    case "file_deleted":
+      code = "fileDeleted";
+      break;
+    case "timeout":
+      code = "timeout";
+      break;
+    case "incomplete_response":
+      code = "incompleteResponse";
+      break;
+    default:
+      code = "http";
+      params.status = error.status ?? 0;
   }
-
-  private async download(fileId: string): Promise<string> {
-    const response = await this.request('GET', `translate/ai/file/${encodeURIComponent(fileId)}/translation`);
-    const body = await response.text();
-    if (!body.trim()) {
-      throw new SupertextError('The translated document was empty.', 'emptyTranslation');
-    }
-    return body;
-  }
-
-  private async request(method: string, path: string, body?: FormData): Promise<Response> {
-    let response: Response;
-    for (let attempt = 0; ; attempt++) {
-      try {
-        response = await this.fetchFn(this.endpoint + path, {
-          method,
-          body,
-          headers: {
-            Authorization: authHeader(this.options.apiKey),
-            Accept: 'application/json',
-          },
-          signal: AbortSignal.timeout(30_000),
-        });
-      } catch (error) {
-        const reason = (error as Error).message;
-        throw new SupertextError(`Could not reach Supertext: ${reason}`, 'unreachable', { params: { reason } });
-      }
-      if (response.status !== 429 || attempt >= RATE_LIMIT_RETRIES) {
-        break;
-      }
-      await response.body?.cancel().catch(() => undefined);
-      await this.sleep(retryDelayMs(attempt, response.headers.get('retry-after')));
-    }
-    if (response.ok) {
-      return response;
-    }
-    const status = response.status;
-    const [code, english] = httpError(status);
-    const detail = (await response.text().catch(() => '')).replace(/<[^>]*>/g, '').trim();
-    const pair = languagePairError(detail);
-    if (pair) {
-      throw new SupertextError(pair.message, pair.code, { params: pair.params, status });
-    }
-    const shortDetail = detail.slice(0, 200) || undefined;
-    throw new SupertextError(shortDetail ? `${english} (${shortDetail})` : english, code, {
-      params: { status },
-      status,
-      detail: shortDetail,
-    });
-  }
+  return new LocalizedError(message, code, params, detail);
 }
 
-/** Error code (`error.<code>` in the UI messages) and English text for an HTTP status. */
-function httpError(status: number): [string, string] {
-  if (status === 401 || status === 403) {
-    return [
-      'auth',
-      'Authentication failed. Please check the Supertext API key. No Supertext account yet? Create one at https://www.supertext.com/person/en/account/signin. Generate your API key at https://www.supertext.com/en/integrations/api (requires the Admin role).',
-    ];
-  }
-  if (status === 404) return ['notFound', 'The requested Supertext resource was not found.'];
-  if (status === 413) return ['tooLarge', 'The content is too large for Supertext to translate in one go.'];
-  if (status === 429) return ['rateLimited', 'Too many requests to Supertext. Please try again shortly.'];
-  if (status >= 500) return ['unavailable', 'The Supertext service is currently unavailable.'];
-  return ['http', `Supertext answered with HTTP ${status}.`];
-}
-
-/**
- * A readable message for Supertext's INVALID_LANGUAGE_PAIR error, else null.
- * Supertext wants a regional target code ("de-CH", "en-US"), not "de".
- */
-export function languagePairError(
-  detail: string
-): { message: string; code: string; params: MessageParams } | null {
-  if (!detail.includes('INVALID_LANGUAGE_PAIR')) {
-    return null;
-  }
-  let source = '';
-  let target = '';
-  try {
-    const data = JSON.parse(detail) as { source_lang?: string; target_lang?: string };
-    source = data.source_lang ?? '';
-    target = data.target_lang ?? '';
-  } catch {
-    // not JSON: keep the generic wording
-  }
-  const pair = source && target ? ` from "${source}" into "${target}"` : '';
-  return {
-    message: `Supertext doesn't translate${pair}. Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).`,
-    code: source && target ? 'languagePair' : 'languagePairUnknown',
-    params: { source, target },
-  };
-}
-
-/**
- * The Authorization header value. Accepts the key with or without the
- * `Supertext-Auth-Key ` prefix (Supertext shows it with the prefix).
- */
-export function authHeader(apiKey: string): string {
-  return `Supertext-Auth-Key ${apiKey.trim().replace(/^Supertext-Auth-Key\s+/i, '')}`;
-}
+/** Error codes (app side) that fail every item the same way: stop the whole job. */
+export const FATAL_CODES = new Set(["auth", "limitExceeded", "noApiKey"]);
+/** Error codes for a language Supertext refuses: skip that language for the rest of the job. */
+export const REFUSED_CODES = new Set(["languagePair", "languagePairUnknown"]);

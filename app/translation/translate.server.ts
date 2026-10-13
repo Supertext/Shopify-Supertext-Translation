@@ -1,9 +1,4 @@
-import {
-  buildDocument,
-  parseDocument,
-  type Segment,
-} from "../supertext/html.server";
-import { MAX_DOCUMENT_CHARACTERS } from "../supertext/client.server";
+import type { SegmentInput } from "../supertext/client.server";
 import { LocalizedError } from "../i18n/error";
 import { selectFields, toTranslations } from "./fields.server";
 import {
@@ -12,8 +7,15 @@ import {
   type AdminClient,
 } from "./shopify.server";
 
-/** Translates one HTML document into `locale` (the Supertext client in production). */
-export type TranslateDocument = (html: string, locale: string) => Promise<string>;
+/**
+ * Translates keyed texts into `locale` and returns them by key: the Supertext
+ * SDK's `translateTexts` in production (it packs them into as few documents
+ * as possible, translates and reads them back).
+ */
+export type TranslateTexts = (
+  segments: Map<string, SegmentInput>,
+  locale: string,
+) => Promise<Map<string, string>>;
 
 export interface ResourceResult {
   written: number;
@@ -22,12 +24,12 @@ export interface ResourceResult {
 
 /**
  * Translates one resource into one locale and writes the result to Shopify:
- * read fields and existing translations → one HTML document per chunk →
- * Supertext → translationsRegister.
+ * read fields and existing translations → Supertext (one key per field) →
+ * translationsRegister.
  */
 export async function translateResource(
   admin: AdminClient,
-  translate: TranslateDocument,
+  translate: TranslateTexts,
   resourceId: string,
   locale: string,
   overwrite: boolean,
@@ -44,13 +46,13 @@ export async function translateResource(
     return { written: 0, skipped: selection.skipped };
   }
 
+  // The field's position is its key; field keys like "body_html" can repeat across resources.
+  const result = await translate(
+    new Map(selection.segments.map((segment, index) => [String(index), segment])),
+    locale,
+  );
   const translated = new Map<number, string>();
-  for (const chunk of chunkSegments(selection.segments)) {
-    const html = await translate(buildDocument(chunk.segments), locale);
-    for (const [index, value] of parseDocument(html, chunk.segments)) {
-      translated.set(chunk.offset + index, value);
-    }
-  }
+  for (const [key, value] of result) translated.set(Number(key), value);
 
   const inputs = toTranslations(selection, translated, locale);
   if (inputs.length < selection.segments.length) {
@@ -62,28 +64,4 @@ export async function translateResource(
   }
   await registerTranslations(admin, resourceId, inputs);
   return { written: inputs.length, skipped: selection.skipped };
-}
-
-/** Splits segments so each document stays below Supertext's size limit. */
-export function chunkSegments(
-  segments: Segment[],
-  limit = MAX_DOCUMENT_CHARACTERS,
-): { offset: number; segments: Segment[] }[] {
-  const chunks: { offset: number; segments: Segment[] }[] = [];
-  let current: Segment[] = [];
-  let offset = 0;
-  let size = 0;
-  segments.forEach((segment, index) => {
-    const length = segment.text.length + 40;
-    if (current.length && size + length > limit) {
-      chunks.push({ offset, segments: current });
-      current = [];
-      offset = index;
-      size = 0;
-    }
-    current.push(segment);
-    size += length;
-  });
-  if (current.length) chunks.push({ offset, segments: current });
-  return chunks;
 }

@@ -70,7 +70,9 @@ The user guide and installation guide include screenshots of the real UI, taken 
 
 ## Shared Supertext protocol
 
-AI file translation API v1, same as the WordPress plugin: POST HTML file → poll status → GET translation → DELETE. Details in `docs/DEVELOPER.md`. Never commit API keys or the Shopify client secret; use environment variables (`SUPERTEXT_API_KEY`, `SHOPIFY_API_SECRET`) or the app's settings.
+AI file translation API v1, same as the WordPress plugin: POST HTML file → poll status → GET translation → DELETE. Details in `docs/DEVELOPER.md`.
+
+All Supertext calls go through the **Supertext SDK** (TypeScript), bundled unchanged in `vendor/supertext-sdk/` (version and checksums in `SDK_VERSION.json`; `npm run sdk:check`). Never edit those files: protocol fixes go into https://github.com/Supertext/Supertext-API-SDK-and-Guide, then `npm run sdk:update -- <clone>`. The app's own code only maps SDK error codes to its messages (`app/supertext/client.server.ts`). Never commit API keys or the Shopify client secret; use environment variables (`SUPERTEXT_API_KEY`, `SHOPIFY_API_SECRET`) or the app's settings.
 
 - **Auth header:** `Authorization: Supertext-Auth-Key <key>`. Strip a pasted `Supertext-Auth-Key ` prefix and always send exactly one.
 - **Rate limit:** HTTP 429 `RATE_LIMIT_EXCEEDED`; retry up to 4 times (`Retry-After`, else 1/2/4/8 s with jitter). Translate languages one after the other.

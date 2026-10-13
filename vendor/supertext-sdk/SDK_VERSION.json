@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "commit": "6468cf62630cf37a966ccadec94f65df39fb8a37",
+  "source": "https://github.com/Supertext/Supertext-API-SDK-and-Guide/tree/6468cf62630cf37a966ccadec94f65df39fb8a37/sdk/typescript/src",
+  "files": {
+    "auth.ts": "555172f3bf1522c726b4e10419a83bdd8560c073d2a86d6e603967d5bc20f82f",
+    "batching.ts": "15b5c58702bb517a0b9912b86c77052a682004c559e1691f3153ed33586cc0c1",
+    "client.ts": "7d2a1a887c52a9c196a127aa797e84ece2c25c23db248875c652d2060470a254",
+    "errors.ts": "012225c75d4a000ed2d7278e3f2ea3816cc927f42fab173f790212642e1a994c",
+    "html-document.ts": "932a1af963baf6e97121f9c677d7e339d24ea96f9b428db9dafc417de6b625c5",
+    "index.ts": "dce7e73f37436a534df3b2838123ac0f3ec1f48102f8761c8c1ceeb469da7ce8",
+    "language-codes.ts": "31b29ac5a1f637078492155288c77612c42075f7991c2419a16fa737fcd83bc5",
+    "multipart.ts": "91363e77ca0cf21a9bdca4e4de3583334efac3b3c36816b6fb2beb07f6803ad5"
+  }
+}

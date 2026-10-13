@@ -120,6 +120,7 @@ export const en = {
   "error.languagePairUnknown":
     "Supertext doesn't translate into this language. Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).",
   "error.interrupted": "Interrupted by an app update. Please start the translation again; finished items are kept.",
+  "error.incompleteResponse": "The Supertext translation is incomplete.",
   "error.itemGone": "The item no longer exists.",
   "error.incomplete": "Supertext returned {returned} of {expected} fields.",
   "error.shopify": "Shopify: {reason}",

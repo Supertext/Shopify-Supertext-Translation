@@ -20,8 +20,7 @@ app/
     resource-types.ts       the resource types the UI offers (shared with the browser)
     language-codes.ts       Shopify locale → Supertext code (defaults, per-shop overrides)
   supertext/
-    client.server.ts        Supertext AI file translation client (same as the other plugins)
-    html.server.ts          packs fields into one HTML document and back
+    client.server.ts        creates the Supertext SDK client; maps SDK error codes to the app's messages
   i18n/
     en.ts, de.ts, fr.ts, it.ts  interface strings (English is the source and fallback)
     index.ts                locale from Shopify's ?locale=, translator, plural forms
@@ -33,7 +32,9 @@ app/
   version.server.ts         app version from package.json
   shopify.server.ts         Shopify app setup (auth, sessions, API version)
 prisma/                     schema and migrations (PostgreSQL)
+vendor/supertext-sdk/       the Supertext SDK (TypeScript), bundled unchanged; see *Supertext SDK*
 scripts/start.mjs           production start: create database, migrate, serve
+scripts/sdk.mjs             checks or updates the bundled SDK
 test/                       Vitest unit tests with fake Shopify and fake Supertext
 shopify.app.toml            app configuration: client ID, URLs, scopes, webhooks
 ```
@@ -53,8 +54,8 @@ The app's UI is in English, German, French and Italian and follows the merchant'
 3. The job gets the shop's offline Admin API session (`unauthenticated.admin(shop)`) and, for each resource and each locale, one after the other:
    - reads `translatableResource(resourceId)` with `translatableContent { key value digest type }` and `translations(locale) { key value outdated }`;
    - selects fields (`fields.server.ts`): types `STRING`, `SINGLE_LINE_TEXT_FIELD`, `MULTI_LINE_TEXT_FIELD` as escaped plain text; `HTML`, `INLINE_RICH_TEXT` as markup; skips `handle`, empty values and other types (JSON, URLs, file references); skips fields with a current translation unless *overwrite*; outdated translations are always redone;
-   - builds one HTML document with one `<div data-st-id="N">` per field (a whole field per element, as the shared rich-text rule requires), split into several documents above 900,000 characters;
-   - translates it with Supertext: source = the shop's primary locale (sent as the bare language, e.g. `en`), target = the locale's **Supertext code** (`translation/language-codes.ts`): the shop's own setting, else Shopify's code if it has a region (`pt-BR`), else a regional default (`de` → `de-DE`, `fr` → `fr-FR`, `en` → `en-US`). Supertext rejects bare targets like `de` with `INVALID_LANGUAGE_PAIR`; the client turns that into a message pointing to Settings → Languages, and the job reports it once per language and skips that language;
+   - passes the fields, keyed by position, to the SDK's `translateTexts`: it builds one HTML document with one `<div data-st-id="N">` per field (a whole field per element, as the shared rich-text rule requires), splits above 900,000 characters, translates, deletes the files and reads the fields back;
+   - source = the shop's primary locale (sent as the bare language, e.g. `en`), target = the locale's **Supertext code** (`translation/language-codes.ts`): the shop's own setting, else Shopify's code if it has a region (`pt-BR`), else a regional default (`de` → `de-DE`, `fr` → `fr-FR`, `en` → `en-US`). Supertext rejects bare targets like `de` with `INVALID_LANGUAGE_PAIR`; `client.server.ts` turns the SDK's `invalid_language_pair` error into a message pointing to Settings → Languages, and the job reports it once per language and skips that language;
    - writes the fields with `translationsRegister`, passing each field's `translatableContentDigest`. If Supertext returns fewer fields than sent, nothing is written for that item.
 4. Progress (`completed`, `written`, `skipped`, `errors`) is saved after every pair; the page polls every 2 seconds while a job runs. Authentication and limit errors stop the job, other errors only skip the item.
 
@@ -65,9 +66,17 @@ The app's UI is in English, German, French and Italian and follows the merchant'
 - Distribution is `AppStore` in `shopify.server.ts` (works for custom-distribution installs as well).
 - Since January 2026, apps can no longer be created in a store's own admin: the app is created in the **Dev Dashboard** (dev.shopify.com). Client ID `d001de0fc4c060b4b044489f7992553a` (public, in `shopify.app.toml`); the client secret is only in Railway (`SHOPIFY_API_SECRET`).
 
+## Supertext SDK
+
+All calls to Supertext go through the **Supertext SDK** for TypeScript from [Supertext-API-SDK-and-Guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide), bundled in `vendor/supertext-sdk/` because the SDK isn't on npm yet. It handles the protocol below, language codes, document packing and batching, retries and errors; the app adds only its own error messages (`app/supertext/client.server.ts`, `localizeError`: SDK code → `error.<code>` in `app/i18n`) and sends `Shopify-Supertext-Translation/<version>` in the User-Agent.
+
+- `vendor/supertext-sdk/SDK_VERSION.json` records the SDK version, the commit it was copied from and a checksum per file. `npm run sdk:check` (also in CI) fails if a bundled file was changed. **Never edit those files**: fix the SDK repo instead.
+- To update: clone the SDK repo, then `npm run sdk:update -- <path to the clone>`, run the tests, and add a changelog entry naming the new SDK version.
+- Once the SDK is on npm, replace the folder with the `supertext-sdk` dependency; the imports are the only change.
+
 ## Supertext API protocol
 
-AI file translation API v1 at `https://api.supertext.com/v1/`, same as the WordPress plugin:
+AI file translation API v1 at `https://api.supertext.com/v1/` (handled by the SDK):
 
 1. `POST translate/ai/file` (multipart): `file` (type exactly `text/html`), `target_lang`, `source_lang` (primary subtag only), optional `politeness` (`more`/`less`) → `{ file_id }`.
 2. `GET translate/ai/file/{id}/status` every 2 s until `done` (`error`, `limit_exceeded`, `deleted` stop; timeout 3 minutes).
@@ -80,13 +89,13 @@ The API key is the shop's own (Settings, stored encrypted in `ShopSettings`; key
 
 ## Language codes
 
-Supertext wants the **source** as a bare language (`en`) and the **target** as a regional code (`de-DE`, `fr-CH`, `en-US`); a bare target such as `de` is rejected with `INVALID_LANGUAGE_PAIR`. `app/translation/language-codes.ts` turns Shopify locales into Supertext codes:
+Supertext wants the **source** as a bare language (`en`) and the **target** as a regional code (`de-DE`, `fr-CH`, `en-US`); a bare target such as `de` is rejected with `INVALID_LANGUAGE_PAIR`. `app/translation/language-codes.ts` turns Shopify locales into Supertext codes, using the SDK's `LanguageCodes` rules and default regions:
 
 - **Target** (`supertextCode`): the shop's own code (Settings → Languages, stored only where it differs from the default), else the locale if it has a region, normalized (`pt-br` → `pt-BR`; scripts and numeric regions such as `zh-Hant`, `es-419` keep their form), else a default region: ar-SA, bg-BG, cs-CZ, da-DK, de-DE, el-GR, en-US, es-ES, et-EE, fi-FI, fr-FR, hr-HR, hu-HU, it-IT, ja-JP, ko-KR, lt-LT, lv-LV, nb-NO, nl-NL, pl-PL, pt-PT, ro-RO, ru-RU, sk-SK, sl-SI, sr-RS, sv-SE, th-TH, tr-TR, uk-UA, vi-VN, zh-CN. Unknown bare codes are sent unchanged, so Supertext's error names them.
-- **Source:** the shop's primary locale, sent as the bare language; the client strips any region (`en-US` → `en`).
+- **Source:** the shop's primary locale, sent as the bare language; the SDK strips any region (`en-US` → `en`).
 - Translating within one language (`en` → `en-GB`) is allowed.
 
-The unit tests (`test/language-codes.test.ts`, `test/client.test.ts`) cover the mapping and the source stripping.
+The unit tests (`test/language-codes.test.ts`) cover the mapping; the SDK's own tests cover the rest.
 
 ## Local development
 
@@ -104,12 +113,13 @@ npm run dev                   # shopify app dev: tunnel, install on a dev store
 ## Tests
 
 ```bash
-npm test            # Vitest: Supertext client, HTML round trip, field selection, translation flow, job loop
+npm test            # Vitest: field selection, translation flow, job loop, error messages, encryption
+npm run sdk:check   # the bundled SDK is unchanged
 npm run typecheck
 npm run build
 ```
 
-The tests use a fake Admin API client and a fake Supertext, so they need neither a store nor a database.
+The tests use a fake Admin API client and the real bundled SDK talking to an in-memory Supertext API (`test/fake-supertext.ts`), so they need neither a store, a database nor the network. To try the app against the SDK repo's stand-in API (which enforces the live API's rules): `node stand-in/stand-in.mjs` in the SDK repo and `SUPERTEXT_API_ENDPOINT=http://127.0.0.1:8765/v1/`.
 
 ## Hosting (Railway)
 

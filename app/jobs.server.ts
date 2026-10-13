@@ -1,9 +1,10 @@
 import prisma from "./db.server";
 import { getSettings, supertextClient } from "./settings.server";
+import { localizeError } from "./supertext/client.server";
 import { supertextCode } from "./translation/language-codes";
 import { unauthenticated } from "./shopify.server";
 import { shopLocales } from "./translation/shopify.server";
-import type { TranslateDocument } from "./translation/translate.server";
+import type { TranslateTexts } from "./translation/translate.server";
 import {
   processJob,
   type JobError,
@@ -76,12 +77,15 @@ async function runJob(id: string, shop: string, request: JobRequest): Promise<vo
   const settings = await getSettings(shop);
   const client = supertextClient(settings);
   const primary = (await shopLocales(admin)).find((l) => l.primary)?.locale;
-  const translate: TranslateDocument = (html, locale) =>
-    client.translateDocument(html, {
-      targetLanguage: supertextCode(locale, settings.languageCodes),
-      sourceLanguage: primary,
-      politeness: settings.politeness,
-    });
+  const translate: TranslateTexts = (segments, locale) =>
+    client
+      .translateTexts(segments, supertextCode(locale, settings.languageCodes), {
+        sourceLang: primary ?? null,
+        politeness: settings.politeness,
+      })
+      .catch((error: unknown) => {
+        throw localizeError(error);
+      });
 
   await prisma.translationJob.update({ where: { id }, data: { status: "running" } });
   const result = await processJob(admin, translate, request, async (progress) => {

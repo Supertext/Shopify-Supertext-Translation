@@ -18,7 +18,9 @@
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
     "typecheck": "react-router typegen && tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sdk:check": "node scripts/sdk.mjs check",
+    "sdk:update": "node scripts/sdk.mjs update"
   },
   "type": "module",
   "engines": {
@@ -34,7 +36,6 @@
     "@shopify/shopify-app-react-router": "^3.0.1",
     "@shopify/shopify-app-session-storage-prisma": "^11.0.0",
     "isbot": "^5.1.31",
-    "node-html-parser": "^9.0.4",
     "pg": "^8.23.1",
     "prisma": "^6.19.0",
     "react": "^18.3.1",
