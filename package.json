@@ -18,9 +18,7 @@
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
     "typecheck": "react-router typegen && tsc --noEmit",
-    "test": "vitest run",
-    "sdk:check": "node scripts/sdk.mjs check",
-    "sdk:update": "node scripts/sdk.mjs update"
+    "test": "vitest run"
   },
   "type": "module",
   "engines": {

@@ -52,6 +52,19 @@ describe("Supertext errors from the SDK", () => {
     expect(error.detail).toBeUndefined();
   });
 
+  it("reports an unknown target language (HTTP 404 INVALID_LANGUAGE_PAIR) as a language pair, not as not found", async () => {
+    const { client } = fakeSupertext(undefined, {
+      status: 404,
+      body: '{"error_code":"INVALID_LANGUAGE_PAIR","message":"…","source_lang":"en","target_lang":"xx-XX","politeness":null}',
+    });
+    const error = localizeError(await client.translateHtml("<p>x</p>", "xx-XX").catch((e: unknown) => e)) as {
+      code: string;
+      params: Record<string, string>;
+    };
+    expect(error.code).toBe("languagePair");
+    expect(error.params).toEqual({ source: "en", target: "xx-XX" });
+  });
+
   it("maps every SDK error code to a message the app has", async () => {
     const { en } = await import("../app/i18n/en");
     const codes = ["missing_api_key", "authentication_failure", "invalid_language_pair", "not_found", "payload_too_large",

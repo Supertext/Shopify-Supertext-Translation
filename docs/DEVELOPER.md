@@ -34,7 +34,7 @@ app/
 prisma/                     schema and migrations (PostgreSQL)
 vendor/supertext-sdk/       the Supertext SDK (TypeScript), bundled unchanged; see *Supertext SDK*
 scripts/start.mjs           production start: create database, migrate, serve
-scripts/sdk.mjs             checks or updates the bundled SDK
+scripts/vendor-sdk.sh       updates the bundled SDK
 test/                       Vitest unit tests with fake Shopify and fake Supertext
 shopify.app.toml            app configuration: client ID, URLs, scopes, webhooks
 ```
@@ -70,8 +70,8 @@ The app's UI is in English, German, French and Italian and follows the merchant'
 
 All calls to Supertext go through the **Supertext SDK** for TypeScript from [Supertext-API-SDK-and-Guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide), bundled in `vendor/supertext-sdk/` because the SDK isn't on npm yet. It handles the protocol below, language codes, document packing and batching, retries and errors; the app adds only its own error messages (`app/supertext/client.server.ts`, `localizeError`: SDK code → `error.<code>` in `app/i18n`) and sends `Shopify-Supertext-Translation/<version>` in the User-Agent.
 
-- `vendor/supertext-sdk/SDK_VERSION.json` records the SDK version, the commit it was copied from and a checksum per file. `npm run sdk:check` (also in CI) fails if a bundled file was changed. **Never edit those files**: fix the SDK repo instead.
-- To update: clone the SDK repo, then `npm run sdk:update -- <path to the clone>`, run the tests, and add a changelog entry naming the new SDK version.
+- `vendor/supertext-sdk/` holds the SDK's sources (`sdk/typescript/src`) plus `LICENSE`, `COMMIT` (the SDK commit it was copied from), `VERSION` and a `README.md`. **Never edit those files**: fix the SDK in its own repository instead.
+- To update: `scripts/vendor-sdk.sh [commit-or-branch]` (default `main`; `SDK_DIR=/path/to/clone scripts/vendor-sdk.sh` uses a local clone as it is). It replaces the folder entirely. Then run the tests and add a changelog entry for what merchants notice.
 - Once the SDK is on npm, replace the folder with the `supertext-sdk` dependency; the imports are the only change.
 
 ## Supertext API protocol
@@ -114,7 +114,6 @@ npm run dev                   # shopify app dev: tunnel, install on a dev store
 
 ```bash
 npm test            # Vitest: field selection, translation flow, job loop, error messages, encryption
-npm run sdk:check   # the bundled SDK is unchanged
 npm run typecheck
 npm run build
 ```
