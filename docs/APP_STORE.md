@@ -56,7 +56,7 @@ Supertext Translation connects your Shopify store to Supertext, the Swiss transl
 
 > 1. Install the app from the install link and approve the permissions.
 > 2. In Shopify, open Settings → Languages and add German (no need to publish).
-> 3. Open Apps → Supertext Translation → Settings. Paste this Supertext API key: **[reviewer API key]**, then click *Save and test connection*. It shows "Supertext accepted the API key".
+> 3. Open Apps → Supertext Translation → Settings. Paste this Supertext API key: **[reviewer API key]**, then click *Save*. It shows "API key checked: the connection to Supertext works."
 > 4. Open Translate. Products is selected; tick one or two products. German is ticked. Click *Translate with Supertext*.
 > 5. Under *Recent translations* the run shows progress and then *Done*. Open the product in Translate & Adapt (or switch the store's language) to see the German title and description.
 >
@@ -65,7 +65,7 @@ Supertext Translation connects your Shopify store to Supertext, the Swiss transl
 ## Screencast script (4.5.3, English, 2–3 minutes)
 
 1. Install from the link, approve permissions, the app opens.
-2. Settings: paste the API key, *Save and test connection*, show the Languages section with de-DE / de-CH.
+2. Settings: paste the API key, *Save* (the key check message appears), show the Languages section mapping de → de-CH.
 3. Translate: choose products, select two, German and French ticked, start.
 4. Progress under *Recent translations*, then *Done*.
 5. Show the result in Translate & Adapt and on the storefront in German.

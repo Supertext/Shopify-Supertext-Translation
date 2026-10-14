@@ -10,6 +10,7 @@ import { processJob } from "../app/translation/process.server";
 import type { AdminClient } from "../app/translation/shopify.server";
 import { LocalizedError } from "../app/i18n/error";
 import { fakeSupertext, prefixSegments } from "./fake-supertext";
+import { localizeError } from "../app/supertext/client.server";
 
 const product: ContentItem[] = [
   { key: "title", value: "Swiss chocolate", digest: "d-title", locale: "en", type: "SINGLE_LINE_TEXT_FIELD" },
@@ -152,6 +153,26 @@ describe("processJob", () => {
 });
 
 describe("refused languages", () => {
+  it("sends nothing for an unmapped language and reports unsupported_language once", async () => {
+    const { admin, registered } = fakeAdmin();
+    const supertext = fakeSupertext(undefined, { mapping: { de: "de-CH" } });
+    const result = await processJob(
+      admin,
+      (segments, locale) =>
+        supertext.translate(segments, locale).catch((error: unknown) => {
+          throw localizeError(error);
+        }),
+      { resourceIds: ["gid://shopify/Product/1", "gid://shopify/Product/2"], locales: ["fr", "de"], overwrite: false },
+      async () => undefined,
+    );
+    expect(result.errors).toEqual([
+      expect.objectContaining({ locale: "fr", code: "unsupportedLanguage", params: { language: "fr" } }),
+    ]);
+    expect(supertext.requests.every((r) => r.targetLang === undefined || r.targetLang === "de-CH")).toBe(true);
+    expect(supertext.requests.filter((r) => r.method === "POST")).toHaveLength(2);
+    expect(registered.map((r) => r.translations[0].locale)).toEqual(["de", "de"]);
+  });
+
   it("reports a language Supertext refuses once and skips it for the other items", async () => {
     const { admin, registered } = fakeAdmin();
     const calls: string[] = [];

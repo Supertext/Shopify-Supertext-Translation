@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Changed: no more guessed language regions.** Settings → Languages now maps each shop language to a Supertext language from Supertext's own list (with a picker), and shows what each language is sent as or *Not mapped*. Shopify codes that are Supertext codes (`es`, `nl`, `pt-BR`, …) work as they are; `de`, `fr`, `en`, `it` need a mapping (e.g. `de` → `de-CH`), there is no default `de-DE` any more. **Shops that relied on the old defaults must set these once.** An unmapped language sends nothing to Supertext and shows *"de" has no Supertext language yet* (all four interface languages); the translate page disables unmapped languages. Codes Supertext doesn't offer aren't saved.
+- Formal/informal is sent only for languages that offer it (not for English, Romansh, Albanian, Serbian, Swiss German dialect); the settings page notes it. New message for *unsupported_feature*.
+- Added: automatic API key check after every save and with the new **Test connection** button (*API key check* box with the last result and its time). Messages for invalid or missing keys link to the Supertext sign-up and API key pages.
+- Added: **Send version information to Supertext** (on by default): the shop's myshopify.com address, the app, Shopify API and runtime versions and the key check result go to the Supertext Commando Center when the settings are saved and after updates. No content, key or personal data. `SUPERTEXT_VERSION_REPORTS=0` turns it off on the server. The privacy policy says so. Database migration `20261014000000_commando_center`.
+- The *Save and test connection* button is replaced by *Save* (which checks the key) and *Test connection*.
+- Supertext SDK updated to 0.2.1 (API in the SDK's `v1` namespace; `scripts/vendor-sdk.sh` copies its folders).
+
 - Fixed: a target language Supertext doesn't know is now reported as an unsupported language pair, pointing to Settings → Languages (was: *The requested Supertext resource was not found*). Supertext SDK updated to commit aba02dd.
 - The app now talks to Supertext through the Supertext SDK for TypeScript (version 0.1.0, bundled in `vendor/supertext-sdk/` until it is on npm), instead of its own client. Same behaviour for merchants; requests now identify the app (`Shopify-Supertext-Translation/<version>`).
 - The app server now runs in the EU (Amsterdam), like its database; the privacy policy says so.

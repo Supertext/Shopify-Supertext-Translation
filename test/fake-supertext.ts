@@ -1,5 +1,9 @@
 import { createClient } from "../app/supertext/client.server";
 import type { TranslateTexts } from "../app/translation/translate.server";
+import { supertextTarget } from "../app/translation/language-codes";
+
+/** A shop's Settings → Languages mapping, as the tests assume it. */
+export const SHOP_MAPPING = { de: "de-DE", fr: "fr-FR", it: "it-IT", en: "en-US" };
 
 /** Prefixes each segment's text with the locale, like the SDK repo's stand-in API. */
 export const prefixSegments = (html: string, locale: string) =>
@@ -14,7 +18,7 @@ export const prefixSegments = (html: string, locale: string) =>
  */
 export function fakeSupertext(
   transform: (html: string, targetLang: string) => string = prefixSegments,
-  options: { status?: number; body?: string } = {},
+  options: { status?: number; body?: string; mapping?: Record<string, string> } = {},
 ) {
   const files = new Map<string, string>();
   const requests: { method: string; path: string; targetLang?: string; sourceLang?: string }[] = [];
@@ -43,6 +47,8 @@ export function fakeSupertext(
   };
   const client = createClient({ apiKey: "test-key", baseUrl: "https://api.test/v1/", fetch, pollIntervalMs: 0, sleep: async () => undefined });
   /** Translates through the real SDK; the target code is the Shopify locale (as jobs.server passes after mapping). */
-  const translate: TranslateTexts = (segments, locale) => client.translateTexts(segments, locale);
+  // Like a job: the shop's mapping (here de → de-DE, …) decides the code sent, nothing is guessed.
+  const translate: TranslateTexts = async (segments, locale) =>
+    client.translateTexts(segments, supertextTarget(locale, options.mapping ?? SHOP_MAPPING));
   return { client, translate, requests };
 }

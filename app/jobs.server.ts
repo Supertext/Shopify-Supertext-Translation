@@ -1,7 +1,8 @@
 import prisma from "./db.server";
 import { getSettings, supertextClient } from "./settings.server";
-import { localizeError } from "./supertext/client.server";
-import { supertextCode } from "./translation/language-codes";
+import { localizeError, SupertextError } from "./supertext/client.server";
+import { politenessFor, supertextSource, supertextTarget } from "./translation/language-codes";
+import { reporting } from "./reporting/index.server";
 import { unauthenticated } from "./shopify.server";
 import { shopLocales } from "./translation/shopify.server";
 import type { TranslateTexts } from "./translation/translate.server";
@@ -77,15 +78,24 @@ async function runJob(id: string, shop: string, request: JobRequest): Promise<vo
   const settings = await getSettings(shop);
   const client = supertextClient(settings);
   const primary = (await shopLocales(admin)).find((l) => l.primary)?.locale;
-  const translate: TranslateTexts = (segments, locale) =>
-    client
-      .translateTexts(segments, supertextCode(locale, settings.languageCodes), {
-        sourceLang: primary ?? null,
-        politeness: settings.politeness,
-      })
-      .catch((error: unknown) => {
-        throw localizeError(error);
+  let reportedAuthFailure = false;
+  const translate: TranslateTexts = async (segments, locale) => {
+    try {
+      // No guessing: the shop's mapping, else an exact Supertext code, else unsupported_language (nothing sent).
+      const target = supertextTarget(locale, settings.languageCodes);
+      const source = primary ? supertextSource(primary, settings.languageCodes) : null;
+      return await client.translateTexts(segments, target, {
+        sourceLang: source || null,
+        politeness: politenessFor(settings.politeness, target),
       });
+    } catch (error) {
+      if (error instanceof SupertextError && error.code === "authentication_failure" && !reportedAuthFailure) {
+        reportedAuthFailure = true;
+        void reporting.authenticationFailed(shop, error.status ?? 401);
+      }
+      throw localizeError(error);
+    }
+  };
 
   await prisma.translationJob.update({ where: { id }, data: { status: "running" } });
   const result = await processJob(admin, translate, request, async (progress) => {
@@ -105,4 +115,6 @@ async function runJob(id: string, shop: string, request: JobRequest): Promise<vo
       status: result.errors.length && result.written === 0 ? "failed" : "done",
     },
   });
+  // Notices app, Shopify and runtime updates (and a changed key) after the work is done.
+  if (!reportedAuthFailure) reporting.onRequestInBackground(shop);
 }

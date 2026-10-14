@@ -4,14 +4,15 @@
  * translated messages (`error.<code>` in app/i18n).
  *
  * The SDK does the protocol: auth header, multipart upload, polling, 429
- * retries, deleting files, packing segments into documents, language codes.
+ * retries, deleting files, packing segments into documents, the language
+ * list and the API key check.
  */
 import {
   SupertextClient,
   SupertextError,
   type Politeness,
   type SegmentInput,
-} from "../../vendor/supertext-sdk/index";
+} from "../../vendor/supertext-sdk/v1/index";
 import { LocalizedError, type MessageParams } from "../i18n/error";
 
 export { SupertextClient, SupertextError };
@@ -67,10 +68,22 @@ export function localizeError(error: unknown): unknown {
         code = "languagePair";
         params.source = error.sourceLang;
         params.target = error.targetLang;
-        message = `Supertext doesn't translate from "${error.sourceLang}" into "${error.targetLang}". Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).`;
+        message = `Supertext doesn't translate from "${error.sourceLang}" into "${error.targetLang}". Set another Supertext language for it under Settings → Languages.`;
       } else {
         code = "languagePairUnknown";
       }
+      break;
+    case "unsupported_language":
+      // Raised by the SDK's Languages before anything is sent: the shop language isn't mapped.
+      code = "unsupportedLanguage";
+      params.language = error.targetLang ?? error.sourceLang ?? "";
+      message = `"${params.language}" has no Supertext language yet. Choose its Supertext language under Settings → Languages.`;
+      break;
+    case "unsupported_feature":
+      code = "unsupportedFeature";
+      params.target = error.targetLang ?? "";
+      detail = undefined;
+      message = `Supertext offers no formal or informal form for "${params.target}". Choose "Let Supertext decide" under Settings → Translation style.`;
       break;
     case "not_found":
       code = "notFound";
@@ -121,4 +134,9 @@ export function localizeError(error: unknown): unknown {
 /** Error codes (app side) that fail every item the same way: stop the whole job. */
 export const FATAL_CODES = new Set(["auth", "limitExceeded", "noApiKey"]);
 /** Error codes for a language Supertext refuses: skip that language for the rest of the job. */
-export const REFUSED_CODES = new Set(["languagePair", "languagePairUnknown"]);
+export const REFUSED_CODES = new Set([
+  "languagePair",
+  "languagePairUnknown",
+  "unsupportedLanguage",
+  "unsupportedFeature",
+]);

@@ -11,47 +11,63 @@ import {
   getSettings,
   removeApiKey,
   saveSettings,
-  supertextClient,
   toPoliteness,
 } from "../settings.server";
 import { appVersion, releaseUrl } from "../version.server";
 import { EncryptionKeyMissing } from "../crypto.server";
-import { localizeError } from "../supertext/client.server";
 import { shopLocales } from "../translation/shopify.server";
 import {
-  defaultSupertextCode,
-  isValidCode,
-  normalizeCode,
-  supertextCode,
+  canonicalCode,
+  resolvedSource,
+  resolvedTarget,
+  supportsPoliteness,
+  TARGET_LANGUAGES,
 } from "../translation/language-codes";
-import type { ErrorInfo, MessageKey, MessageParams } from "../i18n";
-import { errorInfo } from "../i18n/error";
-import { ApiKeyHelp, useI18n } from "../i18n/react";
+import { reporting, ShopReporting, type ApiKeyCheck } from "../reporting/index.server";
+import type { MessageKey, MessageParams } from "../i18n";
+import { ApiKeyHelp, rich, useI18n } from "../i18n/react";
 
-/** What the action reports: a UI message key, or an error from Supertext. */
-type Result =
-  | { ok: boolean; key: MessageKey; params?: MessageParams }
-  | { ok: false; error: ErrorInfo };
+/** The key check as the page shows it (no fingerprint). */
+type KeyCheck = Pick<ApiKeyCheck, "status" | "checkedAt" | "httpStatus">;
+
+const keyCheckView = (check: ApiKeyCheck | null | undefined): KeyCheck | null =>
+  check ? { status: check.status, checkedAt: check.checkedAt, httpStatus: check.httpStatus } : null;
+
+/** What the action reports: a UI message key, and the API key check where one ran. */
+type Result = { ok: boolean; key: MessageKey; params?: MessageParams; check?: KeyCheck | null };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const [settings, locales] = await Promise.all([
+  const [settings, locales, check] = await Promise.all([
     getSettings(session.shop),
     shopLocales(admin),
+    reporting.lastCheck(session.shop),
   ]);
+  // Notices app/Shopify updates and a key from the environment; never delays the page.
+  reporting.onRequestInBackground(session.shop);
   const version = appVersion();
   return {
-    languages: locales.map((l) => ({
-      locale: l.locale,
-      name: l.name,
-      primary: l.primary,
-      code: supertextCode(l.locale, settings.languageCodes),
-      suggested: defaultSupertextCode(l.locale),
-    })),
+    languages: locales.map((l) => {
+      const code = l.primary
+        ? resolvedSource(l.locale, settings.languageCodes)
+        : resolvedTarget(l.locale, settings.languageCodes);
+      return {
+        locale: l.locale,
+        name: l.name,
+        primary: l.primary,
+        mapped: settings.languageCodes[l.locale] ?? "",
+        code,
+        noPoliteness: !l.primary && code !== null && !supportsPoliteness(code),
+      };
+    }),
+    targets: TARGET_LANGUAGES.map((l) => ({ code: l.code, name: l.name })),
     hasShopKey: settings.apiKey !== "" || settings.apiKeyUnreadable,
     apiKeyUnreadable: settings.apiKeyUnreadable,
     usesEnvironmentKey: settings.apiKey === "" && effectiveApiKey(settings) !== "",
     politeness: settings.politeness,
+    versionReports: settings.versionReports,
+    versionReportsOffOnServer: !ShopReporting.enabled(true),
+    keyCheck: keyCheckView(check),
     version,
     releaseUrl: releaseUrl(version),
   };
@@ -59,60 +75,78 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs): Promise<Result> => {
   const { session } = await authenticate.admin(request);
+  const shop = session.shop;
   const form = await request.formData();
   const intent = form.get("intent");
 
-  if (intent === "remove") {
-    await removeApiKey(session.shop);
-    return { ok: true, key: "settings.removed" };
+  if (intent === "test") {
+    const result = await reporting.testConnection(shop);
+    return { ok: result?.check?.status === "ok", key: "keycheck.heading", check: keyCheckView(result?.check) };
   }
 
-  // Language codes: keep only the ones that differ from the suggestion.
+  if (intent === "remove") {
+    await removeApiKey(shop);
+    const result = await reporting.afterSettingsSaved(shop);
+    return { ok: true, key: "settings.removed", check: keyCheckView(result?.check) };
+  }
+
+  // Language mapping: only codes Supertext offers, in its own spelling; empty = not mapped.
+  const primaryLocale = String(form.get("primaryLocale") ?? "");
   const languageCodes: Record<string, string> = {};
   const invalid: string[] = [];
   for (const [name, value] of form.entries()) {
     if (!name.startsWith("code:")) continue;
     const locale = name.slice(5);
-    const code = normalizeCode(String(value));
-    if (!code || code === defaultSupertextCode(locale)) continue;
-    if (!isValidCode(code)) {
-      invalid.push(`${locale}: "${String(value)}"`);
+    const typed = String(value).trim();
+    if (!typed) continue;
+    const code = canonicalCode(typed, locale === primaryLocale);
+    if (!code) {
+      invalid.push(`${locale}: "${typed}"`);
       continue;
     }
     languageCodes[locale] = code;
   }
 
   try {
-    await saveSettings(session.shop, {
+    await saveSettings(shop, {
       apiKey: String(form.get("apiKey") ?? ""),
       politeness: toPoliteness(form.get("politeness")),
       languageCodes,
+      versionReports: form.get("versionReports") === "on",
     });
   } catch (error) {
     if (error instanceof EncryptionKeyMissing) {
       console.error(`[supertext] ${error.message}`);
-      return { ok: false, key: "settings.encryptionMissing" as const };
+      return { ok: false, key: "settings.encryptionMissing" };
     }
     throw error;
   }
+  // The automatic API key check, and the settings_saved report (never blocks the save).
+  const result = await reporting.afterSettingsSaved(shop);
+  const check = keyCheckView(result?.check);
   if (invalid.length) {
-    return { ok: false, key: "settings.invalidCodes", params: { codes: invalid.join(", ") } };
+    return { ok: false, key: "settings.invalidCodes", params: { codes: invalid.join(", ") }, check };
   }
-
-  if (intent === "test") {
-    const settings = await getSettings(session.shop);
-    if (!effectiveApiKey(settings)) {
-      return { ok: false, key: "settings.noKey" };
-    }
-    try {
-      await supertextClient(settings).validateApiKey();
-      return { ok: true, key: "settings.tested" };
-    } catch (error) {
-      return { ok: false, error: errorInfo(localizeError(error)) };
-    }
-  }
-  return { ok: true, key: "settings.saved" };
+  return { ok: true, key: "settings.saved", check };
 };
+
+/** The key check's message with both Supertext links (new tab). */
+function KeyCheckMessage({ check }: { check: KeyCheck }) {
+  const i18n = useI18n();
+  const link = (href: string, key: MessageKey) => (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {i18n.t(key)}
+    </a>
+  );
+  return (
+    <>
+      {rich(i18n, `keycheck.${check.status}` as MessageKey, {
+        signup: link("https://www.supertext.com/person/en/account/signin", "keycheck.signupLink"),
+        apiKey: link("https://www.supertext.com/en/integrations/api", "keycheck.apiKeyLink"),
+      }, { status: check.httpStatus ?? "–" })}
+    </>
+  );
+}
 
 export default function Settings() {
   const i18n = useI18n();
@@ -129,10 +163,23 @@ export default function Settings() {
         </s-banner>
       )}
       {result && (
-        <s-banner tone={result.ok ? "success" : "critical"}>
-          <s-paragraph>
-            {"error" in result ? i18n.error(result.error) : t(result.key, result.params)}
-          </s-paragraph>
+        <s-banner
+          tone={
+            !result.ok && result.key !== "keycheck.heading"
+              ? "critical"
+              : result.check && result.check.status !== "ok"
+                ? "warning"
+                : "success"
+          }
+        >
+          {result.key !== "keycheck.heading" && (
+            <s-paragraph>{t(result.key, result.params)}</s-paragraph>
+          )}
+          {result.check && (
+            <s-paragraph>
+              <KeyCheckMessage check={result.check} />
+            </s-paragraph>
+          )}
         </s-banner>
       )}
 
@@ -162,21 +209,36 @@ export default function Settings() {
 
         <s-section heading={t("settings.languages.heading")}>
           <s-paragraph>{t("settings.languages.text")}</s-paragraph>
+          <datalist id="supertext-languages">
+            {data.targets.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.name}
+              </option>
+            ))}
+          </datalist>
           {data.languages.map((l) => (
             <div key={l.locale} style={{ margin: "8px 0" }}>
+              {l.primary && <input type="hidden" name="primaryLocale" value={l.locale} />}
               <label htmlFor={`code-${l.locale}`} style={{ display: "block", fontWeight: 600 }}>
                 {l.name} ({l.locale}){l.primary ? t("settings.languages.default") : ""}
               </label>
               <input
                 id={`code-${l.locale}`}
                 name={`code:${l.locale}`}
-                defaultValue={l.code}
-                placeholder={l.suggested}
+                defaultValue={l.mapped}
+                placeholder={l.code ?? t("settings.languages.placeholder")}
+                list="supertext-languages"
                 autoCapitalize="off"
                 autoCorrect="off"
                 spellCheck={false}
                 style={{ ...inputStyle, maxWidth: 200, margin: "4px 0 0" }}
               />
+              <div style={{ fontSize: "0.9em", color: l.code === null ? "#8e1f0b" : "#6d7175" }}>
+                {l.code === null
+                  ? t("settings.languages.unmapped")
+                  : t("settings.languages.sentAs", { code: l.code })}
+                {l.noPoliteness && ` ${t("settings.languages.noPoliteness")}`}
+              </div>
             </div>
           ))}
         </s-section>
@@ -197,13 +259,26 @@ export default function Settings() {
           </select>
         </s-section>
 
+        <s-section heading={t("settings.reports.heading")}>
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontWeight: 600 }}>
+            <input
+              type="checkbox"
+              name="versionReports"
+              defaultChecked={data.versionReports}
+              disabled={data.versionReportsOffOnServer}
+            />
+            {t("settings.reports.label")}
+          </label>
+          <s-paragraph>{t("settings.reports.help")}</s-paragraph>
+          {data.versionReportsOffOnServer && (
+            <s-paragraph>{t("settings.reports.offOnServer")}</s-paragraph>
+          )}
+        </s-section>
+
         <s-section>
           <s-stack direction="inline" gap="base">
             <button type="submit" name="intent" value="save" disabled={busy} style={primary}>
               {t("settings.save")}
-            </button>
-            <button type="submit" name="intent" value="test" disabled={busy} style={secondary}>
-              {t("settings.saveAndTest")}
             </button>
             {data.hasShopKey && (
               <button type="submit" name="intent" value="remove" disabled={busy} style={secondary}>
@@ -213,6 +288,26 @@ export default function Settings() {
           </s-stack>
         </s-section>
       </Form>
+
+      <s-section slot="aside" heading={t("keycheck.heading")}>
+        <s-paragraph>
+          {data.keyCheck ? <KeyCheckMessage check={data.keyCheck} /> : t("keycheck.none")}
+        </s-paragraph>
+        {data.keyCheck && (
+          <s-paragraph>
+            <span suppressHydrationWarning>
+              {t("keycheck.checkedAt", {
+                time: new Date(data.keyCheck.checkedAt).toLocaleString(i18n.locale),
+              })}
+            </span>
+          </s-paragraph>
+        )}
+        <Form method="post">
+          <button type="submit" name="intent" value="test" disabled={busy} style={secondary}>
+            {t("settings.test")}
+          </button>
+        </Form>
+      </s-section>
 
       <s-section slot="aside" heading={t("settings.about.heading")}>
         <s-paragraph>

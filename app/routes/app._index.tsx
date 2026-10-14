@@ -17,7 +17,8 @@ import { authenticate } from "../shopify.server";
 import { recentJobs, startJob, type JobView } from "../jobs.server";
 import { effectiveApiKey, getSettings } from "../settings.server";
 import { titleOf } from "../translation/fields.server";
-import { supertextCode } from "../translation/language-codes";
+import { resolvedTarget } from "../translation/language-codes";
+import { reporting } from "../reporting/index.server";
 import { listResources, shopLocales } from "../translation/shopify.server";
 import { isResourceType, RESOURCE_TYPES } from "../translation/resource-types";
 import type { MessageKey } from "../i18n";
@@ -37,6 +38,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     getSettings(session.shop),
   ]);
   const primary = locales.find((l) => l.primary);
+  // Notices app/Shopify updates and a changed key; never delays the page.
+  reporting.onRequestInBackground(session.shop);
 
   return {
     type,
@@ -47,7 +50,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         locale: l.locale,
         name: l.name,
         published: l.published,
-        code: supertextCode(l.locale, settings.languageCodes),
+        // null: not mapped to a Supertext language yet (it can't be translated).
+        code: resolvedTarget(l.locale, settings.languageCodes),
       })),
     resources: page.resources.map((r) => ({
       id: r.id,
@@ -236,9 +240,25 @@ export default function Translate() {
           )}
           {data.targets.map((l) => (
             <label key={l.locale} style={rowStyle}>
-              <input type="checkbox" name="locale" value={l.locale} defaultChecked />
+              <input
+                type="checkbox"
+                name="locale"
+                value={l.locale}
+                defaultChecked={l.code !== null}
+                disabled={l.code === null}
+              />
               {l.name} ({l.locale}){" "}
-              <span style={{ color: "#6d7175" }}>→ Supertext {l.code}</span>
+              {l.code !== null ? (
+                <span style={{ color: "#6d7175" }}>→ Supertext {l.code}</span>
+              ) : (
+                <span style={{ color: "#8e1f0b" }}>
+                  {rich(i18n, "translate.unmapped", {
+                    settings: (
+                      <s-link href="/app/settings">{t("translate.codesHint.settings")}</s-link>
+                    ),
+                  })}
+                </span>
+              )}
               {!l.published && <em style={{ color: "#6d7175" }}>{t("translate.notPublished")}</em>}
             </label>
           ))}

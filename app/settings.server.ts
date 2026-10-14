@@ -11,8 +11,10 @@ import {
 export interface Settings {
   apiKey: string;
   politeness: Politeness;
-  /** Shopify locale → Supertext code set by the shop; missing = the default. */
+  /** Shopify locale → Supertext code set by the shop (one mapping for targets and the source). */
   languageCodes: Record<string, string>;
+  /** "Send version information to Supertext" as saved (the environment can still turn it off). */
+  versionReports: boolean;
   /** A key is stored but can't be decrypted (the server's encryption key changed). */
   apiKeyUnreadable: boolean;
 }
@@ -45,6 +47,7 @@ export async function getSettings(shop: string): Promise<Settings> {
     apiKey,
     politeness: toPoliteness(row?.politeness),
     languageCodes: parseCodes(row?.languageCodes),
+    versionReports: row?.versionReports ?? true,
     apiKeyUnreadable,
   };
 }
@@ -52,7 +55,10 @@ export async function getSettings(shop: string): Promise<Settings> {
 function parseCodes(json: string | undefined): Record<string, string> {
   try {
     const value = JSON.parse(json || "{}");
-    return value && typeof value === "object" ? (value as Record<string, string>) : {};
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return Object.fromEntries(
+      Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+    );
   } catch {
     return {};
   }
@@ -68,6 +74,7 @@ export async function saveSettings(
     apiKey?: string;
     politeness: Politeness;
     languageCodes?: Record<string, string>;
+    versionReports?: boolean;
   },
 ): Promise<void> {
   const plainKey = input.apiKey?.trim();
@@ -81,8 +88,10 @@ export async function saveSettings(
       apiKey: apiKey ?? "",
       politeness: input.politeness,
       languageCodes: languageCodes ?? "{}",
+      versionReports: input.versionReports ?? true,
     },
     update: {
+      ...(input.versionReports !== undefined ? { versionReports: input.versionReports } : {}),
       politeness: input.politeness,
       ...(apiKey ? { apiKey } : {}),
       ...(languageCodes !== undefined ? { languageCodes } : {}),

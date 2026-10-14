@@ -41,7 +41,9 @@ export default function Privacy() {
         <li>The shop&apos;s domain and the access token Shopify issues to the app.</li>
         <li>
           The merchant&apos;s Supertext API key, encrypted (AES-256-GCM), and the
-          app settings (form of address, language codes).
+          app settings (form of address, language codes, version information
+          on or off) and the result of the last API key check (status and time;
+          a SHA-256 fingerprint of the key, never the key).
         </li>
         <li>
           A list of recent translation runs: which items and languages were
@@ -56,6 +58,16 @@ export default function Privacy() {
         merchant&apos;s own API key. The app deletes each file from Supertext as
         soon as the translation is downloaded. The translations are saved in
         the shop through Shopify&apos;s translation API.
+      </p>
+      <p>
+        To check the API key, the app asks Supertext for its list of languages
+        with the key (nothing is translated or billed). Unless the merchant
+        turns off <em>Send version information to Supertext</em> in the
+        app&apos;s settings, the app also sends Supertext&apos;s support
+        service the shop&apos;s myshopify.com address, the versions of the app,
+        the Shopify API and the server runtime, whether a key is set and the
+        result of the key check: when the settings are saved and after an
+        update. No content, no API key and no personal data.
       </p>
 
       <h2>Where the data is processed</h2>

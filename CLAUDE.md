@@ -76,8 +76,10 @@ All Supertext calls go through the **Supertext SDK** (TypeScript), bundled uncha
 
 - **Auth header:** `Authorization: Supertext-Auth-Key <key>`. Strip a pasted `Supertext-Auth-Key ` prefix and always send exactly one.
 - **Rate limit:** HTTP 429 `RATE_LIMIT_EXCEEDED`; retry up to 4 times (`Retry-After`, else 1/2/4/8 s with jitter). Translate languages one after the other.
-- **Language codes:** source = bare language (`en`), target = regional code (`de-DE`, `en-US`); Supertext rejects bare targets (`INVALID_LANGUAGE_PAIR`). Bare Shopify locales get a regional default; see `docs/DEVELOPER.md` → *Language codes*.
+- **Languages:** only the codes Supertext's `GET features` lists (the SDK's `Languages`, `vendor/supertext-sdk/v1`): bare sources (`en`); targets regional only for de/en/fr/it/pt (`de-CH`, `en-US`), `zh-Hans`/`zh-Hant`, `sr-Latn`/`sr-Cyrl`, `gsw-u-sd-chzh`/`chbe`, bare for the rest (`es`, `nl`, `sl`). **No guessing:** the shop's mapping (Settings → Languages, `ShopSettings.languageCodes`), else an exact match, else the error `unsupported_language` (nothing sent). No default regions; formal/informal only where `Languages.supportsPoliteness()`. See `docs/DEVELOPER.md` → *Language codes*.
 - **Rich text:** each element carrying `data-st-id` is translated on its own. Send a whole field (or paragraph) as **one** `data-st-id` element with formatting and links as inline tags; never one per formatted run.
+
+**Commando Center:** version reports and the automatic API key check go through the SDK's `InstallationReporter` (`app/reporting/reporting.ts`, wired in `app/reporting/index.server.ts`, state per shop in `ShopSettings.reporterState`; setting `versionReports`, `SUPERTEXT_VERSION_REPORTS=0` turns it off). Hosted app: site URL = the shop's myshopify.com address, no ping, no callback. See `docs/DEVELOPER.md` → *Commando Center*. Reporting must never break a save, a page or a translation; tests never reach the live center (`SUPERTEXT_REPORT_URL`).
 
 ## Railway lessons
 

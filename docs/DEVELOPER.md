@@ -7,7 +7,7 @@ app/
   routes/
     app.tsx                 embedded admin layout and navigation
     app._index.tsx          Translate page (list, languages, start job, progress)
-    app.settings.tsx        API key, form of address, connection test, version
+    app.settings.tsx        API key, language mapping, form of address, version information, key check, version
     webhooks.*.tsx          app/uninstalled, app/scopes_update, privacy compliance
     healthz.tsx             health check for Railway
     privacy.tsx             public privacy policy (linked from the App Store listing)
@@ -18,9 +18,12 @@ app/
     translate.server.ts     one resource × one locale: read → Supertext → register
     process.server.ts       a whole job: every resource × every locale
     resource-types.ts       the resource types the UI offers (shared with the browser)
-    language-codes.ts       Shopify locale → Supertext code (defaults, per-shop overrides)
+    language-codes.ts       Shopify locale → Supertext code (the shop's mapping, SDK Languages; no guessing)
   supertext/
     client.server.ts        creates the Supertext SDK client; maps SDK error codes to the app's messages
+  reporting/
+    reporting.ts            Commando Center glue around the SDK's InstallationReporter (no database imports)
+    index.server.ts         the same wired to ShopSettings (reporter state per shop) and the settings
   i18n/
     en.ts, de.ts, fr.ts, it.ts  interface strings (English is the source and fallback)
     index.ts                locale from Shopify's ?locale=, translator, plural forms
@@ -55,7 +58,7 @@ The app's UI is in English, German, French and Italian and follows the merchant'
    - reads `translatableResource(resourceId)` with `translatableContent { key value digest type }` and `translations(locale) { key value outdated }`;
    - selects fields (`fields.server.ts`): types `STRING`, `SINGLE_LINE_TEXT_FIELD`, `MULTI_LINE_TEXT_FIELD` as escaped plain text; `HTML`, `INLINE_RICH_TEXT` as markup; skips `handle`, empty values and other types (JSON, URLs, file references); skips fields with a current translation unless *overwrite*; outdated translations are always redone;
    - passes the fields, keyed by position, to the SDK's `translateTexts`: it builds one HTML document with one `<div data-st-id="N">` per field (a whole field per element, as the shared rich-text rule requires), splits above 900,000 characters, translates, deletes the files and reads the fields back;
-   - source = the shop's primary locale (sent as the bare language, e.g. `en`), target = the locale's **Supertext code** (`translation/language-codes.ts`): the shop's own setting, else Shopify's code if it has a region (`pt-BR`), else a regional default (`de` → `de-DE`, `fr` → `fr-FR`, `en` → `en-US`). Supertext rejects bare targets like `de` with `INVALID_LANGUAGE_PAIR`; `client.server.ts` turns the SDK's `invalid_language_pair` error into a message pointing to Settings → Languages, and the job reports it once per language and skips that language;
+   - source = the shop's primary locale, target = the locale's **Supertext code**, both resolved before anything is sent (`translation/language-codes.ts`, see *Language codes*): the shop's mapping, else an exact Supertext code, else `unsupported_language`. That error, and a pair Supertext still refuses (`invalid_language_pair`), become messages pointing to Settings → Languages (`client.server.ts`); the job reports them once per language and skips that language. Formal/informal is sent only where the target offers it;
    - writes the fields with `translationsRegister`, passing each field's `translatableContentDigest`. If Supertext returns fewer fields than sent, nothing is written for that item.
 4. Progress (`completed`, `written`, `skipped`, `errors`) is saved after every pair; the page polls every 2 seconds while a job runs. Authentication and limit errors stop the job, other errors only skip the item.
 
@@ -68,9 +71,11 @@ The app's UI is in English, German, French and Italian and follows the merchant'
 
 ## Supertext SDK
 
-All calls to Supertext go through the **Supertext SDK** for TypeScript from [Supertext-API-SDK-and-Guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide), bundled in `vendor/supertext-sdk/` because the SDK isn't on npm yet. It handles the protocol below, language codes, document packing and batching, retries and errors; the app adds only its own error messages (`app/supertext/client.server.ts`, `localizeError`: SDK code → `error.<code>` in `app/i18n`) and sends `Shopify-Supertext-Translation/<version>` in the User-Agent.
+All calls to Supertext go through the **Supertext SDK** for TypeScript (0.2.1) from [Supertext-API-SDK-and-Guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide), bundled in `vendor/supertext-sdk/` because the SDK isn't on npm yet. It handles the protocol below, the language list, document packing and batching, retries, errors, the API key check and the version reports; the app adds only its own error messages (`app/supertext/client.server.ts`, `localizeError`: SDK code → `error.<code>` in `app/i18n`) and sends `Shopify-Supertext-Translation/<version>` in the User-Agent.
 
-- `vendor/supertext-sdk/` holds the SDK's sources (`sdk/typescript/src`) plus `LICENSE`, `COMMIT` (the SDK commit it was copied from), `VERSION` and a `README.md`. **Never edit those files**: fix the SDK in its own repository instead.
+- Everything that talks to the API is in the SDK's `v1/` folder: the app imports from `vendor/supertext-sdk/v1/index` (the top-level `index.ts` only re-exports it as `v1` with `SDK_VERSION`). A later API version gets `v2/` next to it.
+- `vendor/supertext-sdk/` holds the SDK's sources (`sdk/typescript/src`, with its `v1/` folder) plus `LICENSE`, `COMMIT` (the SDK commit it was copied from), `VERSION` and a `README.md`. **Never edit those files**: fix the SDK in its own repository instead.
+- Every SDK error code (`ErrorCode`) needs an arm in `localizeError` and an `error.<code>` string in all four languages; `test/language-codes.test.ts` checks every code.
 - To update: `scripts/vendor-sdk.sh [commit-or-branch]` (default `main`; `SDK_DIR=/path/to/clone scripts/vendor-sdk.sh` uses a local clone as it is). It replaces the folder entirely. Then run the tests and add a changelog entry for what merchants notice.
 - Once the SDK is on npm, replace the folder with the `supertext-sdk` dependency; the imports are the only change.
 
@@ -83,19 +88,34 @@ AI file translation API v1 at `https://api.supertext.com/v1/` (handled by the SD
 3. `GET translate/ai/file/{id}/translation` → the translated HTML.
 4. `DELETE translate/ai/file/{id}`, always.
 
-Header `Authorization: Supertext-Auth-Key <key>` (a pasted prefix is stripped). HTTP 429 is retried up to 4 times (`Retry-After`, else 1/2/4/8 s with jitter). `GET features` validates the key (*Save and test connection*).
+Header `Authorization: Supertext-Auth-Key <key>` (a pasted prefix is stripped). HTTP 429 is retried up to 4 times (`Retry-After`, else 1/2/4/8 s with jitter). `GET features` checks the key (after every settings save and on *Test connection*, see *Commando Center*).
 
 The API key is the shop's own (Settings, stored encrypted in `ShopSettings`; keys saved before encryption existed are encrypted on first read), else the `SUPERTEXT_API_KEY` variable. `SUPERTEXT_API_ENDPOINT` points the app at a stand-in API.
 
 ## Language codes
 
-Supertext wants the **source** as a bare language (`en`) and the **target** as a regional code (`de-DE`, `fr-CH`, `en-US`); a bare target such as `de` is rejected with `INVALID_LANGUAGE_PAIR`. `app/translation/language-codes.ts` turns Shopify locales into Supertext codes, using the SDK's `LanguageCodes` rules and default regions:
+Supertext accepts exactly the codes its `GET features` lists (the SDK's `Languages`, from the live API): bare sources (`en`, `de`); targets in one exact form each, regional for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), with a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), `gsw-u-sd-chzh`/`chbe` for Swiss German, bare for the others (`es`, `nl`, `sl`). Anything else is HTTP 404 `INVALID_LANGUAGE_PAIR`; formal/informal for a target without it (`en-US`, `rm`, …) is HTTP 400 `FEATURE_ERROR`.
 
-- **Target** (`supertextCode`): the shop's own code (Settings → Languages, stored only where it differs from the default), else the locale if it has a region, normalized (`pt-br` → `pt-BR`; scripts and numeric regions such as `zh-Hant`, `es-419` keep their form), else a default region: ar-SA, bg-BG, cs-CZ, da-DK, de-DE, el-GR, en-US, es-ES, et-EE, fi-FI, fr-FR, hr-HR, hu-HU, it-IT, ja-JP, ko-KR, lt-LT, lv-LV, nb-NO, nl-NL, pl-PL, pt-PT, ro-RO, ru-RU, sk-SK, sl-SI, sr-RS, sv-SE, th-TH, tr-TR, uk-UA, vi-VN, zh-CN. Unknown bare codes are sent unchanged, so Supertext's error names them.
-- **Source:** the shop's primary locale, sent as the bare language; the SDK strips any region (`en-US` → `en`).
-- Translating within one language (`en` → `en-GB`) is allowed.
+`app/translation/language-codes.ts` turns Shopify locales into Supertext codes with the SDK's `Languages`, **without guessing**. One mapping per shop (`ShopSettings.languageCodes`, JSON `{"de":"de-CH"}`, edited under Settings → Languages) serves the targets and the source:
 
-The unit tests (`test/language-codes.test.ts`) cover the mapping; the SDK's own tests cover the rest.
+- **Target** (`supertextTarget` = `Languages.target(locale, mapping)`): the mapping wins; else a Shopify locale that equals a Supertext code apart from case and `_`/`-` (`pt-BR`, `es`, `de_ch` → `de-CH`); else `SupertextError('unsupported_language')`. There are **no default regions**: Shopify's bare `de`, `fr`, `en`, `it`, `pt` must be mapped.
+- **Source** (`supertextSource` = `Languages.source(primary, mapping)`): the mapping in its source form (`en` → `en-US` sends `en`), else the Supertext source for the locale (`en-GB` → `en`), else `unsupported_language`.
+- `jobs.server.ts` resolves both per language before calling `translateTexts`, so an unmapped language sends nothing; the job shows `error.unsupportedLanguage` (naming the locale and Settings → Languages) once and skips that language.
+- The settings page accepts only codes Supertext offers (`canonicalCode`: `Languages.matchTarget`, for the primary language also a bare source), stores them in Supertext's spelling, offers the list as a `<datalist>`, and shows for every language the code it is sent as or *Not mapped*. An empty field removes the mapping. The translate page shows the code next to each language and disables unmapped ones.
+- **Formal/informal:** the shop's one setting is sent only where `Languages.supportsPoliteness(target)` is true (`politenessFor`); other targets get the default, and the settings page says so next to the language. `unsupported_feature` (should Supertext still refuse) has its own message.
+
+`test/language-codes.test.ts` covers the rules; the fake Supertext (`test/fake-supertext.ts`) translates through a shop mapping (`SHOP_MAPPING`) like a job. The SDK repo's stand-in API (`stand-in/stand-in.mjs`) accepts only listed codes, like the real API.
+
+## Commando Center: version reports, key check
+
+Protocol: [Commando-Center-Supertext-Translation](https://github.com/Supertext/Commando-Center-Supertext-Translation) → `docs/DEVELOPER.md` → *Report protocol*. The SDK's `InstallationReporter`, `checkApiKey()` and `reportsEnabled()` implement it; `app/reporting/reporting.ts` (`ShopReporting`) only supplies what the app knows about one shop, `app/reporting/index.server.ts` wires it to the database:
+
+- **Hosted app:** one installation per shop. `site_url` = `https://<shop>.myshopify.com` (the shop's permanent domain, also when it has a custom domain); plugin `Shopify-Supertext-Translation` (the GitHub repository name) with the version from `package.json`; system `Shopify` with the Admin API version the app uses (`apiVersion` in `shopify.server.ts`, e.g. `2026-10`), so moving to a new API version is reported as `upgraded`; runtime Node.js (SDK default). **No ping endpoint and no `callback`.**
+- **Setting:** *Send version information to Supertext* per shop (`ShopSettings.versionReports`, on by default), on the settings page. `SUPERTEXT_VERSION_REPORTS=0` on the server turns it off for every shop (the checkbox is then disabled with a note); `SUPERTEXT_REPORT_URL` sends reports elsewhere (tests, the stand-in's `POST /report`).
+- **State:** the reporter's JSON state per shop in `ShopSettings.reporterState` (migration `20261014000000_commando_center`; upserted, so a shop using the server's `SUPERTEXT_API_KEY` without saved settings gets a row). It holds the last reported versions, the key status and the latest key check with the key's SHA-256 fingerprint; the key itself is never stored there, sent or logged. The row goes with the shop's other data (shop redact).
+- **When:** `afterSettingsSaved` after every save and after *Remove API key* (the settings page shows the key-check message, with both Supertext links in a new tab for `invalid`/`missing`); `testConnection` on *Test connection* (in the *API key check* box, which shows the last result and its time); `onRequest` in the background on the Translate and Settings pages and after each translation job (reports `installed`, `upgraded` or `api_key_check`; checks the key only when its fingerprint changed, e.g. a new `SUPERTEXT_API_KEY`); `authenticationFailed` when a translation gets 401/403 (once per job; reported only when the status changes). Calls are serialized per shop in the process.
+- **Never breaks anything:** every call catches its errors and returns `null` (logged at debug level without the key); the SDK sends with a 3 s timeout and waits an hour after a failed report. Background runs are never awaited by a page.
+- **Tests:** `test/reporting.test.ts` with a fake center and a fake Supertext (events, no callback, setting off, env override, 401 once, failures). `vitest.config.ts` sets `SUPERTEXT_REPORT_URL` to a dead local address, so tests never reach the live center.
 
 ## Local development
 
@@ -113,7 +133,7 @@ npm run dev                   # shopify app dev: tunnel, install on a dev store
 ## Tests
 
 ```bash
-npm test            # Vitest: field selection, translation flow, job loop, error messages, encryption
+npm test            # Vitest: field selection, translation flow, job loop, language codes, reporting, error messages, encryption
 npm run typecheck
 npm run build
 ```
