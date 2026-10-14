@@ -25,7 +25,7 @@ updates:
       # @typescript-eslint/parser and /eslint-plugin must share one version: update both by hand
       - dependency-name: "@typescript-eslint/*"
         update-types: ["version-update:semver-major"]
-      # @shopify/app-bridge-react peers react ^18 at most
+      # React 19 moves JSX into the react module: app-bridge's s-* element types (s-app-nav) need updating first
       - dependency-name: "react"
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
