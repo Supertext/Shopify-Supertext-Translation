@@ -22,7 +22,7 @@ app/
   supertext/
     client.server.ts        creates the Supertext SDK client; maps SDK error codes to the app's messages
   reporting/
-    reporting.ts            Commando Center glue around the SDK's InstallationReporter (no database imports)
+    reporting.ts            Commando Center glue around Plugin Health's InstallationReporter and the SDK's key check (no database imports)
     index.server.ts         the same wired to ShopSettings (reporter state per shop) and the settings
   i18n/
     en.ts, de.ts, fr.ts, it.ts  interface strings (English is the source and fallback)
@@ -36,8 +36,10 @@ app/
   shopify.server.ts         Shopify app setup (auth, sessions, API version)
 prisma/                     schema and migrations (PostgreSQL)
 vendor/supertext-sdk/       the Supertext SDK (TypeScript), bundled unchanged; see *Supertext SDK*
+vendor/supertext-plugin-health/  Supertext Plugin Health (TypeScript), bundled unchanged; see *Supertext Plugin Health*
 scripts/start.mjs           production start: create database, migrate, serve
 scripts/vendor-sdk.sh       updates the bundled SDK
+scripts/vendor-plugin-health.sh  updates the bundled Plugin Health
 test/                       Vitest unit tests with fake Shopify and fake Supertext
 shopify.app.toml            app configuration: client ID, URLs, scopes, webhooks
 ```
@@ -71,13 +73,20 @@ The app's UI is in English, German, French and Italian and follows the merchant'
 
 ## Supertext SDK
 
-All calls to Supertext go through the **Supertext SDK** for TypeScript (0.2.1) from [Supertext-API-SDK-and-Guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide), bundled in `vendor/supertext-sdk/` because the SDK isn't on npm yet. It handles the protocol below, the language list, document packing and batching, retries, errors, the API key check and the version reports; the app adds only its own error messages (`app/supertext/client.server.ts`, `localizeError`: SDK code → `error.<code>` in `app/i18n`) and sends `Shopify-Supertext-Translation/<version>` in the User-Agent.
+All calls to Supertext go through the **Supertext SDK** for TypeScript (0.3.0) from [Supertext-API-SDK-and-Guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide), bundled in `vendor/supertext-sdk/` because the SDK isn't on npm yet. It handles the protocol below, the language list, document packing and batching, retries, errors and the API key check (`checkApiKey()`, `apiKeyFingerprint()`, `SDK_VERSION`); version reports are Supertext Plugin Health's (below). The app adds only its own error messages (`app/supertext/client.server.ts`, `localizeError`: SDK code → `error.<code>` in `app/i18n`) and sends `Shopify-Supertext-Translation/<version>` in the User-Agent.
 
 - Everything that talks to the API is in the SDK's `v1/` folder: the app imports from `vendor/supertext-sdk/v1/index` (the top-level `index.ts` only re-exports it as `v1` with `SDK_VERSION`). A later API version gets `v2/` next to it.
 - `vendor/supertext-sdk/` holds the SDK's sources (`sdk/typescript/src`, with its `v1/` folder) plus `LICENSE`, `COMMIT` (the SDK commit it was copied from), `VERSION` and a `README.md`. **Never edit those files**: fix the SDK in its own repository instead.
 - Every SDK error code (`ErrorCode`) needs an arm in `localizeError` and an `error.<code>` string in all four languages; `test/language-codes.test.ts` checks every code.
 - To update: `scripts/vendor-sdk.sh [commit-or-branch]` (default `main`; `SDK_DIR=/path/to/clone scripts/vendor-sdk.sh` uses a local clone as it is). It replaces the folder entirely. Then run the tests and add a changelog entry for what merchants notice.
 - Once the SDK is on npm, replace the folder with the `supertext-sdk` dependency; the imports are the only change.
+
+## Supertext Plugin Health
+
+[Supertext Plugin Health](https://github.com/Supertext/Commando-Center-Supertext-Translation/tree/main/plugin-health) (`plugin-health/typescript` in the Commando Center repository) sends the version reports and the API key check result to the Supertext Commando Center (`InstallationReporter`, `reportsEnabled()`, `reporterState()`; its ping endpoint isn't used, the app is hosted). It has no dependencies and doesn't call Supertext: `app/reporting/reporting.ts` passes it `SDK_VERSION` and a key checker built on the SDK (`{ check: (key) => new SupertextClient(key, …).checkApiKey(), fingerprint: apiKeyFingerprint }`).
+
+- `vendor/supertext-plugin-health/` holds its sources (`plugin-health/typescript/src`) plus `LICENSE`, `COMMIT`, `VERSION` (0.1.0) and a `README.md`. **Never edit those files**: fix it in Commando-Center-Supertext-Translation/plugin-health instead.
+- To update: `scripts/vendor-plugin-health.sh <tag>` (e.g. `plugin-health-v0.1.0`; default `main`; `PLUGIN_HEALTH_DIR=/path/to/clone` uses a local clone as it is). It replaces the folder entirely. Then run the tests and add a changelog entry.
 
 ## Supertext API protocol
 
@@ -108,13 +117,13 @@ Supertext accepts exactly the codes its `GET features` lists (the SDK's `Languag
 
 ## Commando Center: version reports, key check
 
-Protocol: [Commando-Center-Supertext-Translation](https://github.com/Supertext/Commando-Center-Supertext-Translation) → `docs/DEVELOPER.md` → *Report protocol*. The SDK's `InstallationReporter`, `checkApiKey()` and `reportsEnabled()` implement it; `app/reporting/reporting.ts` (`ShopReporting`) only supplies what the app knows about one shop, `app/reporting/index.server.ts` wires it to the database:
+Protocol: [Commando-Center-Supertext-Translation](https://github.com/Supertext/Commando-Center-Supertext-Translation) → `docs/DEVELOPER.md` → *Report protocol*. Plugin Health's `InstallationReporter` and `reportsEnabled()` and the SDK's `checkApiKey()` implement it; `app/reporting/reporting.ts` (`ShopReporting`) only supplies what the app knows about one shop, `app/reporting/index.server.ts` wires it to the database:
 
-- **Hosted app:** one installation per shop. `site_url` = `https://<shop>.myshopify.com` (the shop's permanent domain, also when it has a custom domain); plugin `Shopify-Supertext-Translation` (the GitHub repository name) with the version from `package.json`; system `Shopify` with the Admin API version the app uses (`apiVersion` in `shopify.server.ts`, e.g. `2026-10`), so moving to a new API version is reported as `upgraded`; runtime Node.js (SDK default). **No ping endpoint and no `callback`.**
+- **Hosted app:** one installation per shop. `site_url` = `https://<shop>.myshopify.com` (the shop's permanent domain, also when it has a custom domain); plugin `Shopify-Supertext-Translation` (the GitHub repository name) with the version from `package.json`; system `Shopify` with the Admin API version the app uses (`apiVersion` in `shopify.server.ts`, e.g. `2026-10`), so moving to a new API version is reported as `upgraded`; runtime Node.js (Plugin Health's default). **No ping endpoint and no `callback`.**
 - **Setting:** *Send version information to Supertext* per shop (`ShopSettings.versionReports`, on by default), on the settings page. `SUPERTEXT_VERSION_REPORTS=0` on the server turns it off for every shop (the checkbox is then disabled with a note); `SUPERTEXT_REPORT_URL` sends reports elsewhere (tests, the stand-in's `POST /report`).
-- **State:** the reporter's JSON state per shop in `ShopSettings.reporterState` (migration `20261014000000_commando_center`; upserted, so a shop using the server's `SUPERTEXT_API_KEY` without saved settings gets a row). It holds the last reported versions, the key status and the latest key check with the key's SHA-256 fingerprint; the key itself is never stored there, sent or logged. The row goes with the shop's other data (shop redact).
+- **State:** the reporter's JSON state per shop (`reporterState()`, the same format the SDK 0.2 reporter stored, so the switch sent no new `installed`) in `ShopSettings.reporterState` (migration `20261014000000_commando_center`; upserted, so a shop using the server's `SUPERTEXT_API_KEY` without saved settings gets a row). It holds the last reported versions, the key status and the latest key check with the key's SHA-256 fingerprint; the key itself is never stored there, sent or logged. The row goes with the shop's other data (shop redact).
 - **When:** `afterSettingsSaved` after every save and after *Remove API key* (the settings page shows the key-check message, with both Supertext links in a new tab for `invalid`/`missing`); `testConnection` on *Test connection* (in the *API key check* box, which shows the last result and its time); `onRequest` in the background on the Translate and Settings pages and after each translation job (reports `installed`, `upgraded` or `api_key_check`; checks the key only when its fingerprint changed, e.g. a new `SUPERTEXT_API_KEY`); `authenticationFailed` when a translation gets 401/403 (once per job; reported only when the status changes). Calls are serialized per shop in the process.
-- **Never breaks anything:** every call catches its errors and returns `null` (logged at debug level without the key); the SDK sends with a 3 s timeout and waits an hour after a failed report. Background runs are never awaited by a page.
+- **Never breaks anything:** every call catches its errors and returns `null` (logged at debug level without the key); Plugin Health sends with a 3 s timeout and waits an hour after a failed report. Background runs are never awaited by a page.
 - **Tests:** `test/reporting.test.ts` with a fake center and a fake Supertext (events, no callback, setting off, env override, 401 once, failures). `vitest.config.ts` sets `SUPERTEXT_REPORT_URL` to a dead local address, so tests never reach the live center.
 
 ## Local development

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Copies Supertext Plugin Health's TypeScript sources into vendor/supertext-plugin-health, where the
+# app's own build compiles them with the rest of the app (like the Supertext SDK).
+# Source: https://github.com/Supertext/Commando-Center-Supertext-Translation (plugin-health/typescript/src).
+#
+#   scripts/vendor-plugin-health.sh [commit-or-branch]                 (default: main)
+#   PLUGIN_HEALTH_DIR=/path/to/clone scripts/vendor-plugin-health.sh   (use a local clone as it is)
+set -euo pipefail
+ref="${1:-main}"
+root="$(cd "$(dirname "$0")/.." && pwd)"
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+if [ -n "${PLUGIN_HEALTH_DIR:-}" ]; then
+  src="$(cd "$PLUGIN_HEALTH_DIR" && pwd)"
+else
+  git clone -q https://github.com/Supertext/Commando-Center-Supertext-Translation "$work/center"
+  git -C "$work/center" checkout -q "$ref"
+  src="$work/center"
+fi
+commit="$(git -C "$src" rev-parse HEAD)"
+version="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' "$src/plugin-health/typescript/package.json" | head -1)"
+dest="$root/vendor/supertext-plugin-health"
+rm -rf "$dest"
+mkdir -p "$dest"
+(cd "$src/plugin-health/typescript/src" && find . -name '*.ts' | while read -r f; do mkdir -p "$dest/$(dirname "$f")"; cp "$f" "$dest/$f"; done)
+cp "$src/plugin-health/typescript/LICENSE" "$dest/LICENSE"
+printf '%s\n' "$commit" > "$dest/COMMIT"
+printf '%s\n' "$version" > "$dest/VERSION"
+cat > "$dest/README.md" <<EOT
+# Supertext Plugin Health (bundled copy)
+
+TypeScript part of [Supertext Plugin Health](https://github.com/Supertext/Commando-Center-Supertext-Translation/tree/main/plugin-health)
+(version reports, API key check result and reachability ping for the Supertext Commando Center),
+version $version, commit \`$commit\`, compiled with the app.
+
+Don't edit these files: fix it in Commando-Center-Supertext-Translation/plugin-health, then run
+\`scripts/vendor-plugin-health.sh\`.
+EOT
+echo "vendor/supertext-plugin-health: Supertext Plugin Health (TypeScript) $version from commit $commit"

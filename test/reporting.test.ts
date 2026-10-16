@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PLUGIN_NAME, ShopReporting, siteUrl, type ReporterState } from "../app/reporting/reporting";
+import { SDK_VERSION } from "../vendor/supertext-sdk/index";
 
 const KEY = "secret-key-123";
 const SHOP = "demo-shop.myshopify.com";
@@ -27,14 +28,15 @@ function setup(options: { keyStatus?: number; centerStatus?: number; versionRepo
         reports.push(JSON.parse(String(init?.body)));
         return new Response('{"ok":true}', { status: options.centerStatus ?? 202 });
       },
-      clientOptions: {
-        baseUrl: "https://api.test/v1/",
-        sleep: async () => undefined,
-        fetch: async (url: string, init: RequestInit) => {
-          keyChecks.push(`${init.method ?? "GET"} ${url} ${new Headers(init.headers).get("authorization")}`);
-          const status = options.keyStatus ?? 200;
-          return new Response(status === 200 ? "[]" : '{"error_code":"UNAUTHORIZED"}', { status });
-        },
+    },
+    clientOverrides: {
+      baseUrl: "https://api.test/v1/",
+      now: () => now,
+      sleep: async () => undefined,
+      fetch: async (url: string, init: RequestInit) => {
+        keyChecks.push(`${init.method ?? "GET"} ${url} ${new Headers(init.headers).get("authorization")}`);
+        const status = options.keyStatus ?? 200;
+        return new Response(status === 200 ? "[]" : '{"error_code":"UNAUTHORIZED"}', { status });
       },
     },
   });
@@ -56,6 +58,7 @@ describe("Commando Center glue", () => {
       system: { name: "Shopify", version: "2026-10" },
       api_key_configured: true,
       api_key_check: { status: "ok", http_status: 200 },
+      sdk_version: SDK_VERSION,
     });
     expect(reports[0]).not.toHaveProperty("callback");
     expect(JSON.stringify(reports)).not.toContain(KEY);

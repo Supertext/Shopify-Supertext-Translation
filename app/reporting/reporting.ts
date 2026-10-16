@@ -1,10 +1,12 @@
 /**
  * Version reports to the Supertext Commando Center and the automatic API key
  * check (Commando-Center-Supertext-Translation → docs/DEVELOPER.md → Report
- * protocol). The protocol is the Supertext SDK's (`InstallationReporter`);
- * this file only gives it what the app knows about one shop: its address, the
- * app and Shopify API versions, the key in use and a place for the reporter's
- * state (`ShopSettings.reporterState`, see index.server.ts).
+ * protocol). The protocol is Supertext Plugin Health's (`InstallationReporter`,
+ * vendor/supertext-plugin-health); the key check is the Supertext SDK's
+ * (`checkApiKey()`). This file only gives them what the app knows about one
+ * shop: its address, the app and Shopify API versions, the key in use and a
+ * place for the reporter's state (`ShopSettings.reporterState`, see
+ * index.server.ts).
  *
  * A hosted app: no ping endpoint, no callback URL. Nothing here ever throws
  * into a request, a save or a translation, and the API key is never logged.
@@ -15,13 +17,18 @@ import {
   InstallationReporter,
   reporterState,
   reportsEnabled,
-  type ApiKeyCheck,
+  type KeyCheck,
+  type KeyChecker,
   type ReporterOptions,
   type ReporterResult,
   type ReporterState,
-} from "../../vendor/supertext-sdk/v1/index";
+} from "../../vendor/supertext-plugin-health/index";
+import { SDK_VERSION } from "../../vendor/supertext-sdk/index";
+import { apiKeyFingerprint, SupertextClient, type SupertextClientOptions } from "../../vendor/supertext-sdk/v1/index";
 
-export type { ApiKeyCheck, ReporterResult, ReporterState };
+/** The latest key check as Plugin Health stores it (the fields of the SDK's ApiKeyCheck). */
+export type ApiKeyCheck = KeyCheck;
+export type { ReporterResult, ReporterState };
 
 /** The GitHub repository name: the center reads the latest release from it. */
 export const PLUGIN_NAME = "Shopify-Supertext-Translation";
@@ -39,8 +46,10 @@ export interface ShopReportingDeps {
   /** The stand-in API for the key check (SUPERTEXT_API_ENDPOINT); the live API otherwise. */
   supertextBaseUrl?: string;
   log?: (message: string) => void;
-  /** Tests: fetch, report URL, clock and client options for the SDK reporter. */
+  /** Tests: fetch, report URL and clock for the Plugin Health reporter. */
   reporterOverrides?: Partial<ReporterOptions>;
+  /** Tests: options for the SDK client that checks the key (fetch, base URL, clock). */
+  clientOverrides?: SupertextClientOptions;
 }
 
 type Action =
@@ -105,13 +114,21 @@ export class ShopReporting {
       siteUrl: siteUrl(shop),
       plugin: { name: PLUGIN_NAME, version: this.deps.appVersion },
       system: { name: "Shopify", version: this.deps.shopifyApiVersion },
+      sdkVersion: SDK_VERSION,
       callbackUrl: null,
-      clientOptions: {
-        ...(this.deps.supertextBaseUrl ? { baseUrl: this.deps.supertextBaseUrl } : {}),
-        userAgent: `${PLUGIN_NAME}/${this.deps.appVersion}`,
-      },
+      keyChecker: this.keyChecker(),
       ...this.deps.reporterOverrides,
     });
+  }
+
+  /** The SDK's key check (`GET features`), against the stand-in API if one is configured. */
+  keyChecker(): KeyChecker {
+    const options: SupertextClientOptions = {
+      ...(this.deps.supertextBaseUrl ? { baseUrl: this.deps.supertextBaseUrl } : {}),
+      userAgent: `${PLUGIN_NAME}/${this.deps.appVersion}`,
+      ...this.deps.clientOverrides,
+    };
+    return { check: (key) => new SupertextClient(key, options).checkApiKey(), fingerprint: apiKeyFingerprint };
   }
 
   /** One action per shop at a time, so two requests don't report twice. Never throws. */
