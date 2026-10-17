@@ -50,7 +50,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         locale: l.locale,
         name: l.name,
         published: l.published,
-        // null: not mapped to a Supertext language yet (it can't be translated).
+        // null: no mapping, exact code or default (it can't be translated until chosen in Settings).
         code: resolvedTarget(l.locale, settings.languageCodes),
       })),
     resources: page.resources.map((r) => ({

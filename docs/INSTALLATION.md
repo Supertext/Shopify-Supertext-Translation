@@ -52,12 +52,29 @@ The default language (shown as *Default* in Shopify) is the source language.
 
 ### Supertext language codes
 
-Supertext translates into exact language variants, for example `de-CH` (Swiss Standard German, no "ß"), `de-DE`, `fr-CH`, `fr-FR`, `en-US`, `en-GB`, `pt-BR`. For German, English, French, Italian and Portuguese it has **no variant without a region**, and the app doesn't guess one. Shopify names most languages without a region (`de`, `fr`), so map them once under **Apps → Supertext Translation → Settings → Languages**:
+Supertext translates into exact language variants, for example `de-CH` (Swiss Standard German, no "ß"), `de-DE`, `fr-CH`, `fr-FR`, `en-US`, `en-GB`, `pt-BR`. Shopify names most languages without a region (`de`, `fr`). Choose the variant for each language under **Apps → Supertext Translation → Settings → Languages**:
 
-1. Each of your shop's languages has a field. Type or pick the Supertext language from the list, for example `de-CH` for `de`, then click **Save**.
-2. Under each field the page shows what is sent: *Sent to Supertext as de-CH*, or in red *Not mapped* while the language has no Supertext language. Unmapped languages can't be ticked on the translate page.
-3. Languages whose Shopify code already is a Supertext code work without a mapping: `es`, `nl`, `sv`, `pl`, `pt-BR`, `zh-Hans` and so on. Your default language works too when it is a bare language Supertext translates from (`en`, `de`, …); map it only if it isn't (the same mapping is used for the source, e.g. `en` → `en-US` sends `en`).
-4. Leave a field empty to remove its mapping. A code Supertext doesn't offer is not saved; the page lists it.
+1. Each of your shop's languages (the default language included) has a drop-down list (combo box) with Supertext's languages, shown as *Name (code)*, for example *Schweizer Hochdeutsch (de-CH)*; the names follow your admin language. Pick one and click **Save**.
+2. The list is preselected with Supertext's suggestion until you save your own choice: the same code where Supertext offers it (`es`, `nl`, `sv`, `pl`, `pt-BR`, `zh-Hans`, …), else the default below. Languages you never touch are translated with that suggestion too.
+3. Under each list the page shows what is sent: *Sent to Supertext as de-DE*, or in red *No Supertext language* for a language without suggestion (for example `en-IE`, `de-LI`, `fr-BE`, `gsw`, `sr-RS`). Choose one for it; until then it can't be ticked on the translate page and nothing is sent for it.
+4. *— choose —* removes a saved choice; the suggestion then applies again (or the language is unmapped if it has none). The server accepts only codes from Supertext's list.
+5. Your default language is translated from: the same choice is used in its source form (`en` → `en-US` sends `en`).
+
+Defaults (from the Supertext SDK) for Shopify codes that aren't Supertext codes:
+
+| Shopify code | Supertext language |
+| --- | --- |
+| `de` | `de-DE` |
+| `en` | `en-US` |
+| `fr` | `fr-FR` |
+| `it` | `it-IT` |
+| `pt` | `pt-PT` |
+| `zh`, `zh-CN`, `zh-SG` | `zh-Hans` |
+| `zh-TW`, `zh-HK`, `zh-MO` | `zh-Hant` |
+| `sr` | `sr-Latn` |
+| a region of a language Supertext offers without one (`es-ES`, `nl-NL`, `nb-NO`, …) | the bare code (`es`, `nl`, `nb`) |
+
+For Swiss German choose `de-CH` (or `fr-CH`, `it-CH` for Switzerland) yourself; nothing else is guessed.
 
 The full list is the one Supertext's API publishes (`GET features`): bg, cs, da, de-AT, de-CH, de-DE, el, en-GB, en-US, es, fi, fr-CH, fr-FR, gsw-u-sd-chbe, gsw-u-sd-chzh, hr, hu, it-CH, it-IT, ja, ko, nb, nl, pl, pt-BR, pt-PT, rm, ru, sk, sl, sq, sr-Cyrl, sr-Latn, sv, tr, zh-Hans, zh-Hant.
 
@@ -68,7 +85,7 @@ Formal and informal address (*Form of address*) applies only to languages that h
 | Setting | Where | What it does |
 | --- | --- | --- |
 | API key | Settings | Your Supertext AI key. Required. |
-| Supertext language per language | Settings → Languages | The Supertext language a shop language is translated into (and from, for the default language), e.g. `de` → `de-CH`. Needed for Shopify codes that aren't Supertext codes (`de`, `fr`, `en`, `it`, `pt`); empty = not mapped. See *Supertext language codes*. |
+| Supertext language per language | Settings → Languages | A combo box per shop language: the Supertext language it is translated into (and from, for the default language), e.g. `de` → `de-CH`. Preselected with Supertext's suggestion (exact code, else the default, e.g. `de` → `de-DE`); *— choose —* for languages without one, which need a choice. See *Supertext language codes*. |
 | Form of address | Settings | *Let Supertext decide*, *Formal* (German "Sie") or *Informal* (German "du"). Sent only for languages that have the distinction. |
 | Send version information to Supertext | Settings → Version information | On by default. See *Version information*. |
 | Overwrite existing translations | Translate page, per run | Off: fields that already have a current translation are kept. On: everything selected is translated again. |
@@ -106,9 +123,9 @@ Open **Settings → Apps and sales channels**, choose **Supertext Translation** 
 | --- | --- |
 | *Add your Supertext API key* | Enter the key under Settings. No account yet? Create one at [supertext.com](https://www.supertext.com/person/en/account/signin); generate the key at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) (requires the Admin role). |
 | *Authentication failed. Please check the Supertext API key* | The key is wrong or was deleted. Generate a new one at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) (requires the Admin role) and save it under Settings. No account yet? Create one at [supertext.com](https://www.supertext.com/person/en/account/signin). |
-| *"de" has no Supertext language yet, so nothing was sent* | The shop language isn't mapped (Settings → Languages shows *Not mapped*). Choose its Supertext language there, e.g. `de-CH`, save and translate again. |
+| *"en-IE" has no Supertext language, so nothing was sent* | The shop language has no Supertext language and no default (Settings → Languages shows *No Supertext language*). Choose one in its combo box there, e.g. `en-GB`, save and translate again. |
 | *Supertext doesn't translate from "en" into "de-CH"* | Supertext refuses this pair. Choose another Supertext language for it under Settings → Languages. |
-| *Saved, except these language codes, which Supertext doesn't offer* | The code typed isn't in Supertext's list (e.g. `de` without region, `German`). Pick one from the list. |
+| *Saved, except these language codes, which Supertext doesn't offer* | A submitted code isn't in Supertext's list (only possible with a tampered form or an old stored value). Pick one from the combo box. |
 | *API key checked: the connection to Supertext works.* | All good. |
 | *Supertext rejected the API key …* | The key is incomplete, wrong or was deleted. Paste the whole key or generate a new one at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) (requires the Admin role). No account yet? Create one at [supertext.com](https://www.supertext.com/person/en/account/signin). |
 | *No API key is set yet …* | Paste the key under Settings and save. |

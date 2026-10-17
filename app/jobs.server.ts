@@ -81,7 +81,7 @@ async function runJob(id: string, shop: string, request: JobRequest): Promise<vo
   let reportedAuthFailure = false;
   const translate: TranslateTexts = async (segments, locale) => {
     try {
-      // No guessing: the shop's mapping, else an exact Supertext code, else unsupported_language (nothing sent).
+      // The shop's mapping, else an exact Supertext code, else the SDK default (de → de-DE, …), else unsupported_language (nothing sent).
       const target = supertextTarget(locale, settings.languageCodes);
       const source = primary ? supertextSource(primary, settings.languageCodes) : null;
       return await client.translateTexts(segments, target, {
