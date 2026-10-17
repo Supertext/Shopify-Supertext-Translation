@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The public pages outside the Shopify admin (landing page, login page, privacy policy) now have Supertext's look: deep-green header with the Supertext logo, warm off-white background, mint buttons, Inter bundled with the app. New favicon (the Supertext S). The pages inside the Shopify admin keep Shopify's own look.
 - Changed: version reports and the API key check result now use Supertext Plugin Health 0.1.0 (bundled in `vendor/supertext-plugin-health`); bundled Supertext SDK updated to 0.3.0 (commit `f7bd414`). No change for shops: settings and stored state stay as they are.
 - **Changed: no more guessed language regions.** Settings → Languages now maps each shop language to a Supertext language from Supertext's own list (with a picker), and shows what each language is sent as or *Not mapped*. Shopify codes that are Supertext codes (`es`, `nl`, `pt-BR`, …) work as they are; `de`, `fr`, `en`, `it` need a mapping (e.g. `de` → `de-CH`), there is no default `de-DE` any more. **Shops that relied on the old defaults must set these once.** An unmapped language sends nothing to Supertext and shows *"de" has no Supertext language yet* (all four interface languages); the translate page disables unmapped languages. Codes Supertext doesn't offer aren't saved.
 - Formal/informal is sent only for languages that offer it (not for English, Romansh, Albanian, Serbian, Swiss German dialect); the settings page notes it. New message for *unsupported_feature*.

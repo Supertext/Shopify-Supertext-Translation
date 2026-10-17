@@ -11,7 +11,9 @@ app/
     webhooks.*.tsx          app/uninstalled, app/scopes_update, privacy compliance
     healthz.tsx             health check for Railway
     privacy.tsx             public privacy policy (linked from the App Store listing)
-    _index/, auth.*         landing and login pages from the template
+    _index/, auth.*         landing and login pages (Supertext's look, see Look and feel)
+  components/PublicPage.tsx  header bar and stylesheet of the public pages (landing, login, privacy)
+  styles/public.css       Supertext's look for the public pages; colours as CSS variables at the top
   translation/
     shopify.server.ts       GraphQL Admin API calls (locales, resources, translationsRegister)
     fields.server.ts        which fields go to Supertext, and back into translation inputs
@@ -35,6 +37,7 @@ app/
   version.server.ts         app version from package.json
   shopify.server.ts         Shopify app setup (auth, sessions, API version)
 prisma/                     schema and migrations (PostgreSQL)
+public/                     favicon.svg / favicon.ico (S mark), supertext-logo.svg, fonts/ (Inter, SIL Open Font License)
 vendor/supertext-sdk/       the Supertext SDK (TypeScript), bundled unchanged; see *Supertext SDK*
 vendor/supertext-plugin-health/  Supertext Plugin Health (TypeScript), bundled unchanged; see *Supertext Plugin Health*
 scripts/start.mjs           production start: create database, migrate, serve
@@ -51,6 +54,15 @@ The app's UI is in English, German, French and Italian and follows the merchant'
 - Strings live in `app/i18n/{en,de,fr,it}.ts`. `en.ts` defines the keys; the other files are typed `Messages`, so a missing key fails `npm run typecheck`, and `test/i18n.test.ts` checks that placeholders, URLs and "Supertext" are kept. **Every new or changed string gets all four languages in the same commit.** Formal address (Sie, vous, Lei), Shopify's own terms in each language (de *Kategorien*, *Blogbeiträge*; fr *boutique*; it *negozio*, *collezioni*), placeholders and URLs untranslated; French uses `\u00a0` before `? ! : ;`.
 - Plurals: keys ending in `.one` / `.other`, used with `tn(key, count)` (`Intl.PluralRules`).
 - Server errors shown in the UI are `LocalizedError`s (`SupertextError` is one): an English `message` for logs plus a `code` and `params` that select `error.<code>` in the message files; `detail` (Supertext's or Shopify's own text) is shown as it is. Job errors are stored with these fields in the job row, so the page translates them when it shows them. Actions return message keys, not text.
+
+## Look and feel
+
+Two looks, on purpose:
+
+- **Embedded admin pages** (`app/routes/app.*`, shown inside the Shopify admin): Shopify's Polaris web components and Shopify's Inter, as Shopify's app design guidelines expect. Don't restyle them.
+- **Public pages outside the admin** (the landing page `_index/`, the login page `auth.login/`, the privacy policy `privacy.tsx`): Supertext's look, as on supertext.com and in the other hosted Supertext apps. The deep-green header bar (`#003230`, rounded bottom corners) with Supertext's mint logo (`public/supertext-logo.svg`, the website's own SVG), the warm off-white background (`#f7f5f3`), deep-green text and outlines, mint (`#78ffaf`) for the main action, light grey lines (`#dfe1df`), pill-shaped buttons. They use `PublicPage` and its `publicLinks` (`app/components/PublicPage.tsx`), which load `app/styles/public.css`; the colours are CSS variables at the top of that file. Text is set in Inter, bundled in `public/fonts/` (variable font, Latin and Latin Extended; SIL Open Font License in `Inter-LICENSE.txt`), so these pages load no font from elsewhere. Supertext's heading font (ABC Ginto Nord) is licensed and not bundled; headings use Inter Bold.
+
+The favicon (`public/favicon.svg`, with `favicon.ico` for older browsers) is the logo's S mark on deep green.
 
 ## How a translation runs
 
