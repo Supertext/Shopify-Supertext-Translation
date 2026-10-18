@@ -8,6 +8,7 @@ Open **Apps → Supertext Translation**, pick products, collections, pages or bl
 - Product descriptions keep their headings, lists, bold text and links
 - Keeps existing translations unless you ask to overwrite; outdated ones are translated again
 - Formal or informal form of address
+- Export for translation (XLIFF 1.2 or HTML) for translators, translation tools or Supertext's web app, and import of the translated file
 
 ## Documentation
 

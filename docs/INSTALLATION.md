@@ -88,7 +88,9 @@ Formal and informal address (*Form of address*) applies only to languages that h
 | Supertext language per language | Settings → Languages | A combo box per shop language: the Supertext language it is translated into (and from, for the default language), e.g. `de` → `de-CH`. Preselected with Supertext's suggestion (exact code, else the default, e.g. `de` → `de-DE`); *— choose —* for languages without one, which need a choice. See *Supertext language codes*. |
 | Form of address | Settings | *Let Supertext decide*, *Formal* (German "Sie") or *Informal* (German "du"). Sent only for languages that have the distinction. |
 | Send version information to Supertext | Settings → Version information | On by default. See *Version information*. |
-| Overwrite existing translations | Translate page, per run | Off: fields that already have a current translation are kept. On: everything selected is translated again. |
+| Overwrite existing translations | Translate page, per run (and per import) | Off: fields that already have a current translation are kept. On: everything selected is translated again. |
+
+**Translation files** (*Export for translation*, *Import translation* on the Translate page) need nothing to set up and no API key: everyone who can open the app can export and import, as for translating (the app writes only the shop's translations). Uploads are limited to 10 MB, read in memory and never stored. See the [user guide](USER_GUIDE.md#translation-files-export-for-translation-import-translation).
 
 ## Version information
 
@@ -137,6 +139,8 @@ Open **Settings → Apps and sales channels**, choose **Supertext Translation** 
 | Translations don't show in the shop | Publish the language under Settings → Languages, and check that the shop's theme has a language selector. |
 | *Enter your API key again* (Settings) | The saved key can no longer be read, for example after a server change. Paste the key again and save. |
 | *Interrupted by an app update* | The app was updated while the translation ran. Start it again; items that were finished are kept. |
+| *This file isn't a valid XLIFF or HTML translation file* / *This file wasn't exported by the Supertext app …* | The imported file is damaged, another kind of file, or its translator removed the metadata (HTML head, XLIFF file header). Export again and ask the translator to keep the structure. |
+| *The file is too large (at most 10 MB)* | Export fewer languages per file. |
 | The app doesn't load | Reload the admin page. If it still doesn't load, contact Supertext; the app's server may be down. |
 
 ## Screenshots

@@ -31,6 +31,43 @@ Customers see a language only once it is published under **Settings → Language
 - Fields whose original text changed after they were translated are marked outdated by Shopify. These are always translated again, so a run without overwrite brings your translations up to date.
 - **With** *Overwrite existing translations*, every selected field is translated again, replacing edits you made in Translate & Adapt.
 
+## Translation files: export for translation, import translation
+
+Instead of Supertext AI, you can have an item translated by someone else: a translator, a translation tool (Trados, memoQ, Phrase and other CAT tools) or Supertext's web app. The app exports the item's texts as a file and imports the translated file again. Both are on the **Translate** page, below the translate button.
+
+**Export for translation**
+
+1. Under *1. Choose what to translate*, tick exactly **one** item.
+2. Under **Export for translation**, choose the **File format**:
+   - **XLIFF 1.2 (for translation tools)**: the better choice for translators and translation tools. Formatting (bold, links, …) shows as tags they can move but not break. One file can hold several languages.
+   - **HTML (one language per file)**: for Supertext's web app or anyone who translates HTML files.
+3. Choose the target languages (HTML: one). Every shop language is offered, also one without a Supertext language: the file then names the Shopify code (for example `en-IE`).
+4. Click **Download file**. The file is called like `shopify-8123456789-fr-FR.xlf` (item number and target language; `shopify-8123456789.xlf` for several languages).
+
+The file holds the same fields Supertext AI would translate (see below), also those that already have a translation. Send it to the translator or upload it to Supertext's web app. Translators must keep the file's structure: in an HTML file, leave the head (the `supertext:` lines) and the `data-st-id` attributes alone.
+
+**Import translation**
+
+1. Under **Import translation**, choose the translated file (**Translated file (XLIFF or HTML)**, at most 10 MB).
+2. Leave **Also import texts whose source changed since the export** off unless you want translations of texts that were edited in the meantime (they then translate the old text).
+3. **Overwrite existing translations** works as for Supertext AI: off, fields that already have a current translation are kept.
+4. Click **Import translation**. The translations are saved in Shopify straight away, like Supertext's (you can review them in Translate & Adapt).
+
+The app then shows, per item and language:
+
+| Line | Meaning |
+| --- | --- |
+| *Imported: 3* | Fields saved in Shopify. |
+| *Skipped, source changed since the export: 1* | The field's original text was edited after the export, so the translation may be out of date. Import again with *Also import texts whose source changed since the export* to save it anyway, or export again. |
+| *Not translated in the file: 1* | The file has no translation for it (XLIFF only). |
+| *Formatting changed, not imported: 1* | The translation breaks or adds formatting (tags, links) that the original doesn't have. Fix it in the file and import again. |
+| *Not in the file: 1* | The field was added or filled after the export. |
+| *Kept, already translated: 1* | The field has a current translation and *Overwrite existing translations* was off. |
+
+An HTML file can't mark a text as untranslated: imported unchanged, it saves the original text as the translation.
+
+Messages: *This file isn't a valid XLIFF or HTML translation file* (damaged, or another kind of file), *This file wasn't exported by the Supertext app, or its header was removed* (the metadata is missing), *This file belongs to another system* (exported from another Supertext plugin), *The item this file was exported from no longer exists*, *The shop has no language …* (the language was removed since), *The file is too large (at most 10 MB)*, *Nothing to translate* (the item has no text fields to export).
+
 ## What gets translated
 
 For products, collections, pages, blog posts and blogs, every text field Shopify offers for translation, for example:

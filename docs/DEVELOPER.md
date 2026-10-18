@@ -8,11 +8,14 @@ app/
     app.tsx                 embedded admin layout and navigation
     app._index.tsx          Translate page (list, languages, start job, progress)
     app.settings.tsx        API key, language mapping, form of address, version information, key check, version
+    app.files.export.tsx    resource route: POST → the translation file as a download (see Translation files)
+    app.files.import.tsx    resource route: POST an upload → its translations written, summary per job as JSON
     webhooks.*.tsx          app/uninstalled, app/scopes_update, privacy compliance
     healthz.tsx             health check for Railway
     privacy.tsx             public privacy policy (linked from the App Store listing)
     _index/, auth.*         landing and login pages (Supertext's look, see Look and feel)
   components/PublicPage.tsx  header bar and stylesheet of the public pages (landing, login, privacy)
+  components/TranslationFiles.tsx  Export for translation / Import translation sections of the Translate page
   styles/public.css       Supertext's look for the public pages; colours as CSS variables at the top
   translation/
     shopify.server.ts       GraphQL Admin API calls (locales, resources, translationsRegister)
@@ -21,6 +24,7 @@ app/
     process.server.ts       a whole job: every resource × every locale
     resource-types.ts       the resource types the UI offers (shared with the browser)
     language-codes.ts       Shopify locale → Supertext code (the shop's mapping, SDK Languages with its defaults)
+    files.server.ts         translation files: export, import, reference format (SDK TranslationFiles)
   supertext/
     client.server.ts        creates the Supertext SDK client; maps SDK error codes to the app's messages
   reporting/
@@ -76,6 +80,16 @@ The favicon (`public/favicon.svg`, with `favicon.ico` for older browsers) is the
    - writes the fields with `translationsRegister`, passing each field's `translatableContentDigest`. If Supertext returns fewer fields than sent, nothing is written for that item.
 4. Progress (`completed`, `written`, `skipped`, `errors`) is saved after every pair; the page polls every 2 seconds while a job runs. Authentication and limit errors stop the job, other errors only skip the item.
 
+## Translation files (XLIFF and HTML)
+
+*Export for translation* and *Import translation* (Translate page, `app/components/TranslationFiles.tsx`) use the SDK's `TranslationFiles` (SDK 0.5.0, `vendor/supertext-sdk/translation-file.ts`, imported from `vendor/supertext-sdk/index`: it doesn't call the API, so it isn't in `v1`). The glue is `app/translation/files.server.ts`; the two resource routes only authenticate (`authenticate.admin`, the session token App Bridge adds to `fetch`), read the form and return the file or JSON.
+
+- **Segments:** `selectFields(content, [], true)`, the API translation's own field selection with *overwrite*, so the file has every translatable field, also translated ones. Keys are Shopify's field keys (`title`, `body_html`, `meta_description`), unique per resource and stable, unlike the positional keys `translateTexts` gets.
+- **Job metadata:** `plugin` = `Shopify-Supertext-Translation`; `reference` = `<GraphQL type>:<numeric id>:<Shopify locale>`, e.g. `Product:8123456789:fr` for `gid://shopify/Product/8123456789` in French (`fileReference` / `parseReference`; ids, never titles); `sourceLanguage`/`targetLanguage` = the codes the shop's mapping resolves (`resolvedSource`/`resolvedTarget`), else the Shopify code with `_` → `-`, so unmapped languages never block an export. XLIFF: one job per target locale in one file; HTML: exactly one locale.
+- **Download:** `shopify-<id>-<target>.xlf|.html`, or `shopify-<id>.xlf` for several languages; `application/x-xliff+xml` / `text/html; charset=utf-8`, `Content-Disposition: attachment`. The browser fetches it and saves the blob (a plain link can't carry the session token).
+- **Import:** `refuseLargeUpload` checks `Content-Length` before the body is read and the file's size (10 MB); the upload is parsed in memory and never stored. `TranslationFiles.read` (errors `invalid_file`, `missing_metadata`, `too_large` → `error.fileInvalid` / `fileMissingMetadata` / `fileTooLarge`), then per job: `plugin` must be ours (`fileOtherSystem`), the reference must parse and the resource exist (`fileItemGone`), the locale must be one of the shop's target locales (`fileNoLanguage`). The current fields are selected with the import's *overwrite* option, exactly as for an API run (fields with a current translation are *kept*), `importTranslations(file, current)`, and `ok` results (plus `source_changed` with *Also import texts whose source changed*) are written with `registerTranslations`, using the current digests. `untranslated`, `invalid_markup` and `missing` are counted, never written.
+- Tests: `test/files.test.ts` (reference round trip, keys and mapping, HTML/XLIFF names, every import outcome, upload size).
+
 ## Shopify API
 
 - Admin GraphQL API version `2026-10` (`ApiVersion.October26`, webhooks in `shopify.app.toml`).
@@ -85,9 +99,9 @@ The favicon (`public/favicon.svg`, with `favicon.ico` for older browsers) is the
 
 ## Supertext SDK
 
-All calls to Supertext go through the **Supertext SDK** for TypeScript (0.4.0) from [Supertext-API-SDK-and-Guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide), bundled in `vendor/supertext-sdk/` because the SDK isn't on npm yet. It handles the protocol below, the language list, document packing and batching, retries, errors and the API key check (`checkApiKey()`, `apiKeyFingerprint()`, `SDK_VERSION`); version reports are Supertext Plugin Health's (below). The app adds only its own error messages (`app/supertext/client.server.ts`, `localizeError`: SDK code → `error.<code>` in `app/i18n`) and sends `Shopify-Supertext-Translation/<version>` in the User-Agent.
+All calls to Supertext go through the **Supertext SDK** for TypeScript (0.5.0) from [Supertext-API-SDK-and-Guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide), bundled in `vendor/supertext-sdk/` because the SDK isn't on npm yet. It handles the protocol below, the language list, document packing and batching, retries, errors and the API key check (`checkApiKey()`, `apiKeyFingerprint()`, `SDK_VERSION`); version reports are Supertext Plugin Health's (below). The app adds only its own error messages (`app/supertext/client.server.ts`, `localizeError`: SDK code → `error.<code>` in `app/i18n`) and sends `Shopify-Supertext-Translation/<version>` in the User-Agent.
 
-- Everything that talks to the API is in the SDK's `v1/` folder: the app imports from `vendor/supertext-sdk/v1/index` (the top-level `index.ts` only re-exports it as `v1` with `SDK_VERSION`). A later API version gets `v2/` next to it.
+- Everything that talks to the API is in the SDK's `v1/` folder: the app imports from `vendor/supertext-sdk/v1/index` (the top-level `index.ts` re-exports it as `v1` with `SDK_VERSION`, plus the version-neutral `TranslationFiles`, see *Translation files*). A later API version gets `v2/` next to it.
 - `vendor/supertext-sdk/` holds the SDK's sources (`sdk/typescript/src`, with its `v1/` folder) plus `LICENSE`, `COMMIT` (the SDK commit it was copied from), `VERSION` and a `README.md`. **Never edit those files**: fix the SDK in its own repository instead.
 - Every SDK error code (`ErrorCode`) needs an arm in `localizeError` and an `error.<code>` string in all four languages; `test/language-codes.test.ts` checks every code.
 - To update: `scripts/vendor-sdk.sh [commit-or-branch]` (default `main`; `SDK_DIR=/path/to/clone scripts/vendor-sdk.sh` uses a local clone as it is). It replaces the folder entirely. Then run the tests and add a changelog entry for what merchants notice.
@@ -154,7 +168,7 @@ npm run dev                   # shopify app dev: tunnel, install on a dev store
 ## Tests
 
 ```bash
-npm test            # Vitest: field selection, translation flow, job loop, language codes, reporting, error messages, encryption
+npm test            # Vitest: field selection, translation flow, job loop, translation files, language codes, reporting, error messages, encryption
 npm run typecheck
 npm run build
 ```
@@ -242,4 +256,5 @@ Never tag or create releases by hand.
 - Up to 50 items per run (one page of the list); selecting across pages and "translate everything" come later.
 - An admin action on the product and collection pages (*Translate with Supertext* in the **More actions** menu) would save a trip to the app.
 - Not in the App Store yet: see [APP_STORE.md](APP_STORE.md) for the submission checklist, listing texts and reviewer instructions.
-- The demo store is set up by hand; screenshots for the guides follow once it exists.
+- The demo store is set up by hand; screenshots for the guides (including the export and import sections) follow once it exists.
+- Translation files export one item at a time; a bulk export of the selected items comes later.
