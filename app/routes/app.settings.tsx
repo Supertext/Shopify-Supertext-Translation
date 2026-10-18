@@ -14,6 +14,7 @@ import {
   toPoliteness,
 } from "../settings.server";
 import { appVersion, releaseUrl } from "../version.server";
+import { reviewUrl } from "../supertext/client.server";
 import { EncryptionKeyMissing } from "../crypto.server";
 import { shopLocales } from "../translation/shopify.server";
 import {
@@ -74,10 +75,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         // A saved code the list doesn't offer stays selectable, so nothing is lost.
         extra: selected && !isOption(selected) ? selected : null,
         code,
+        // Translation review applies to translations into a language, so not to the default language.
+        review: !l.primary && settings.reviewLocales.includes(l.locale),
         noPoliteness: !l.primary && code !== null && !supportsPoliteness(code),
       };
     }),
     targets: options.map((l) => ({ code: l.code, name: targetName(l, uiLocale) })),
+    // SUPERTEXT_REVIEW_URL="" on the server: review is off for every language.
+    reviewOffOnServer: reviewUrl() === "",
     hasShopKey: settings.apiKey !== "" || settings.apiKeyUnreadable,
     apiKeyUnreadable: settings.apiKeyUnreadable,
     usesEnvironmentKey: settings.apiKey === "" && effectiveApiKey(settings) !== "",
@@ -112,7 +117,14 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Result> =
   const primaryLocale = String(form.get("primaryLocale") ?? "");
   const languageCodes: Record<string, string> = {};
   const invalid: string[] = [];
+  // Translation review per target language (checkbox "review:<locale>"; never the default language).
+  const reviewLocales: string[] = [];
   for (const [name, value] of form.entries()) {
+    if (name.startsWith("review:")) {
+      const locale = name.slice(7);
+      if (value === "on" && locale && locale !== primaryLocale) reviewLocales.push(locale);
+      continue;
+    }
     if (!name.startsWith("code:")) continue;
     const locale = name.slice(5);
     const typed = String(value).trim();
@@ -130,6 +142,8 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Result> =
       apiKey: String(form.get("apiKey") ?? ""),
       politeness: toPoliteness(form.get("politeness")),
       languageCodes,
+      // With review off on the server the checkboxes are disabled (not submitted): keep the saved choice.
+      reviewLocales: reviewUrl() === "" ? undefined : reviewLocales,
       versionReports: form.get("versionReports") === "on",
     });
   } catch (error) {
@@ -250,6 +264,23 @@ export default function Settings() {
                   : t("settings.languages.sentAs", { code: l.code })}
                 {l.noPoliteness && ` ${t("settings.languages.noPoliteness")}`}
               </div>
+              {!l.primary && (
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontWeight: 600 }}>
+                    <input
+                      type="checkbox"
+                      name={`review:${l.locale}`}
+                      defaultChecked={l.review}
+                      disabled={data.reviewOffOnServer}
+                    />
+                    {t("settings.languages.review")}
+                  </label>
+                  <div style={{ fontSize: "0.9em", marginTop: 4, color: "#6d7175" }}>
+                    {t("settings.languages.reviewHelp")}
+                    {data.reviewOffOnServer && ` ${t("settings.languages.reviewOffOnServer")}`}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </s-section>

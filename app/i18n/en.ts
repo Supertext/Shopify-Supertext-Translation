@@ -113,6 +113,10 @@ export const en = {
   "settings.languages.sentAs": "Sent to Supertext as {code}.",
   "settings.languages.unmapped": "No Supertext language: choose one in the list, otherwise this language can't be translated.",
   "settings.languages.noPoliteness": "No formal or informal form in this language; Supertext decides.",
+  "settings.languages.review": "Translation review",
+  "settings.languages.reviewHelp":
+    "Translations into this language go through Supertext's review service, so reviewers can check and correct them on your online store with the Supertext Localization Review extension. Their corrections are used the next time the item is translated (with \"Overwrite existing translations\").",
+  "settings.languages.reviewOffOnServer": "Translation review is turned off on this server.",
   "settings.reports.heading": "Version information",
   "settings.reports.label": "Send version information to Supertext",
   "settings.reports.help": "Sends the shop's address and the versions of this app, the Shopify API and the runtime to Supertext when you save these settings and after an update, so Supertext support can see which version you run. No content, no API key and no personal data are sent.",

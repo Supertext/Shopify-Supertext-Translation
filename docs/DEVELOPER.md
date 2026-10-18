@@ -7,7 +7,7 @@ app/
   routes/
     app.tsx                 embedded admin layout and navigation
     app._index.tsx          Translate page (list, languages, start job, progress)
-    app.settings.tsx        API key, language mapping, form of address, version information, key check, version
+    app.settings.tsx        API key, language mapping and Translation review per language, form of address, version information, key check, version
     app.files.export.tsx    resource route: POST → the translation file as a download (see Translation files)
     app.files.import.tsx    resource route: POST an upload → its translations written, summary per job as JSON
     webhooks.*.tsx          app/uninstalled, app/scopes_update, privacy compliance
@@ -26,7 +26,7 @@ app/
     language-codes.ts       Shopify locale → Supertext code (the shop's mapping, SDK Languages with its defaults)
     files.server.ts         translation files: export, import, reference format (SDK TranslationFiles)
   supertext/
-    client.server.ts        creates the Supertext SDK client; maps SDK error codes to the app's messages
+    client.server.ts        creates the Supertext SDK clients (direct and, for Translation review, the review service); maps SDK error codes to the app's messages
   reporting/
     reporting.ts            Commando Center glue around Plugin Health's InstallationReporter and the SDK's key check (no database imports)
     index.server.ts         the same wired to ShopSettings (reporter state per shop) and the settings
@@ -77,6 +77,7 @@ The favicon (`public/favicon.svg`, with `favicon.ico` for older browsers) is the
    - selects fields (`fields.server.ts`): types `STRING`, `SINGLE_LINE_TEXT_FIELD`, `MULTI_LINE_TEXT_FIELD` as escaped plain text; `HTML`, `INLINE_RICH_TEXT` as markup; skips `handle`, empty values and other types (JSON, URLs, file references); skips fields with a current translation unless *overwrite*; outdated translations are always redone;
    - passes the fields, keyed by position, to the SDK's `translateTexts`: it builds one HTML document with one `<div data-st-id="N">` per field (a whole field per element, as the shared rich-text rule requires), splits above 900,000 characters, translates, deletes the files and reads the fields back;
    - source = the shop's primary locale, target = the locale's **Supertext code**, both resolved before anything is sent (`translation/language-codes.ts`, see *Language codes*): the shop's mapping, else an exact Supertext code, else the SDK default (`de` → `de-DE`, …), else `unsupported_language`. That error, and a pair Supertext still refuses (`invalid_language_pair`), become messages pointing to Settings → Languages (`client.server.ts`); the job reports them once per language and skips that language. Formal/informal is sent only where the target offers it;
+   - languages in the shop's *Translation review* list (`ShopSettings.reviewLocales`) are translated with the review service's client (see *Translation review*), all others directly;
    - writes the fields with `translationsRegister`, passing each field's `translatableContentDigest`. If Supertext returns fewer fields than sent, nothing is written for that item.
 4. Progress (`completed`, `written`, `skipped`, `errors`) is saved after every pair; the page polls every 2 seconds while a job runs. Authentication and limit errors stop the job, other errors only skip the item.
 
@@ -127,6 +128,8 @@ Header `Authorization: Supertext-Auth-Key <key>` (a pasted prefix is stripped). 
 
 The API key is the shop's own (Settings, stored encrypted in `ShopSettings`; keys saved before encryption existed are encrypted on first read), else the `SUPERTEXT_API_KEY` variable. `SUPERTEXT_API_ENDPOINT` points the app at a stand-in API.
 
+**Translation review** (per target language, `ShopSettings.reviewLocales`, a JSON array of Shopify locales, migration `20261019000000_translation_review`; existing shops start with none): Settings → Languages has a checkbox below each target language's combo box (not for the default language). `settings.server.ts` → `supertextClients(settings)` returns `createClients()` from `client.server.ts`: `direct` (the live API or `SUPERTEXT_API_ENDPOINT`) and `forReview(review)`, a second SDK client with the same key, User-Agent and options whose base URL is `reviewUrl()` (`SUPERTEXT_REVIEW_URL`, default `REVIEW_URL`, the translation proxy of [Supertext Localization Review](https://github.com/Supertext/Localization-Review-Supertext-Translation)), created on first use. `jobs.server.ts` picks the client per locale; `translateTexts` uploads, polls, downloads and deletes with that one client, so a job is always collected where it was submitted. The proxy speaks the same API v1, forwards to the live Supertext API with the shop's key, stores every segment per key and serves reviewers' corrections on the next upload, so nothing else changes in the app. `SUPERTEXT_REVIEW_URL=""` (or the API's own URL) means `forReview()` always returns the direct client; the settings page then disables the checkboxes and saving keeps the stored list. The key check (`reporting.ts`), the version reports and translation files never use the review service. Tests: `test/review.test.ts` (a review language's upload, status, download and delete go to the review URL, others directly, same key and User-Agent; one review client; off with an empty or the same URL; the default is Supertext's review service).
+
 ## Language codes
 
 Supertext accepts exactly the codes its `GET features` lists (the SDK's `Languages`, from the live API): bare sources (`en`, `de`); targets in one exact form each, regional for German, English, French, Italian and Portuguese (`de-CH`, `en-US`, `pt-BR`), with a script for Chinese and Serbian (`zh-Hans`, `sr-Latn`), `gsw-u-sd-chzh`/`chbe` for Swiss German, bare for the others (`es`, `nl`, `sl`). Anything else is HTTP 404 `INVALID_LANGUAGE_PAIR`; formal/informal for a target without it (`en-US`, `rm`, …) is HTTP 400 `FEATURE_ERROR`.
@@ -168,7 +171,7 @@ npm run dev                   # shopify app dev: tunnel, install on a dev store
 ## Tests
 
 ```bash
-npm test            # Vitest: field selection, translation flow, job loop, translation files, language codes, reporting, error messages, encryption
+npm test            # Vitest: field selection, translation flow, job loop, translation files, language codes, Translation review clients, reporting, error messages, encryption
 npm run typecheck
 npm run build
 ```
@@ -188,6 +191,7 @@ The backend runs on Railway (project *supertext-cms-demos*, service **Shopify**,
 | `DATABASE_URL` | the shared Postgres service's URL |
 | `SHOPIFY_DB_NAME` | `shopify_supertext` (created on first start) |
 | `SUPERTEXT_API_KEY` | optional default key (the demo store) |
+| `SUPERTEXT_REVIEW_URL` | optional: another review service than Supertext's for languages with *Translation review* on (unset: Supertext's; empty: review off for every shop). The service must reach `https://api.supertext.com` and, for Translation review, Supertext's review service. |
 | `SUPERTEXT_KEY_ENCRYPTION_KEY` | random string of at least 32 characters (e.g. `openssl rand -base64 48`). Encrypts the shops' Supertext API keys (AES-256-GCM, `app/crypto.server.ts`). Required: without it, keys can't be saved. If it changes, stored keys can't be read any more and shops are asked to enter theirs again; so never rotate it casually. |
 
 `scripts/start.mjs` creates `SHOPIFY_DB_NAME` on the Postgres server if needed, runs `prisma migrate deploy` and starts `react-router-serve`. When the URL changes, update `application_url` and `redirect_urls` in `shopify.app.toml` and deploy the configuration (next section).
@@ -258,3 +262,4 @@ Never tag or create releases by hand.
 - Not in the App Store yet: see [APP_STORE.md](APP_STORE.md) for the submission checklist, listing texts and reviewer instructions.
 - The demo store is set up by hand; screenshots for the guides (including the export and import sections) follow once it exists.
 - Translation files export one item at a time; a bulk export of the selected items comes later.
+- Re-translating with *Overwrite* replaces edits made in Translate & Adapt; no change detection. A translation memory and reviewers' corrections come from the review service when a language has *Translation review* on; corrections reach Shopify only with the next translation with *Overwrite* (no push).

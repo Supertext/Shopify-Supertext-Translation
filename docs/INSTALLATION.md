@@ -78,6 +78,8 @@ For Swiss German choose `de-CH` (or `fr-CH`, `it-CH` for Switzerland) yourself; 
 
 The full list is the one Supertext's API publishes (`GET features`): bg, cs, da, de-AT, de-CH, de-DE, el, en-GB, en-US, es, fi, fr-CH, fr-FR, gsw-u-sd-chbe, gsw-u-sd-chzh, hr, hu, it-CH, it-IT, ja, ko, nb, nl, pl, pt-BR, pt-PT, rm, ru, sk, sl, sq, sr-Cyrl, sr-Latn, sv, tr, zh-Hans, zh-Hant.
 
+Below each language's combo box (except the default language's) is the **Translation review** checkbox, off by default; see *Translation review*.
+
 Formal and informal address (*Form of address*) applies only to languages that have it; for English, Romansh, Albanian, Serbian and Swiss German dialect the app sends no preference and the settings page notes it next to the language.
 
 ## All settings
@@ -86,11 +88,26 @@ Formal and informal address (*Form of address*) applies only to languages that h
 | --- | --- | --- |
 | API key | Settings | Your Supertext AI key. Required. |
 | Supertext language per language | Settings → Languages | A combo box per shop language: the Supertext language it is translated into (and from, for the default language), e.g. `de` → `de-CH`. Preselected with Supertext's suggestion (exact code, else the default, e.g. `de` → `de-DE`); *— choose —* for languages without one, which need a choice. See *Supertext language codes*. |
+| Translation review per language | Settings → Languages, below the language's combo box | Off by default. On: translations into this language go through Supertext's review service, where reviewers correct them on your online store. Not offered for the default language. See *Translation review*. |
 | Form of address | Settings | *Let Supertext decide*, *Formal* (German "Sie") or *Informal* (German "du"). Sent only for languages that have the distinction. |
 | Send version information to Supertext | Settings → Version information | On by default. See *Version information*. |
 | Overwrite existing translations | Translate page, per run (and per import) | Off: fields that already have a current translation are kept. On: everything selected is translated again. |
 
 **Translation files** (*Export for translation*, *Import translation* on the Translate page) need nothing to set up and no API key: everyone who can open the app can export and import, as for translating (the app writes only the shop's translations). Uploads are limited to 10 MB, read in memory and never stored. See the [user guide](USER_GUIDE.md#translation-files-export-for-translation-import-translation).
+
+## Translation review
+
+With **Translation review**, people check the translations on your online store itself and correct them there: your colleagues or Supertext linguists open the original and the translated page side by side in Chrome with the *Supertext Localization Review* extension and fix texts in a side panel. Their corrections come back into Shopify.
+
+Turn it on per language: **Apps → Supertext Translation → Settings → Languages**, tick **Translation review** below the language translated **into** (for example *German (de)*), then click **Save**. Untick it to turn it off again; nothing else changes.
+
+- Translations into that language then go through Supertext's review service instead of directly to Supertext. It answers exactly like Supertext and passes everything on with your API key, so billing, languages, form of address and error messages stay the same. Other languages keep going directly to Supertext.
+- The review service keeps every translation of your Supertext account. A text it has translated before gets the same translation again (without a new Supertext call), and once a reviewer has corrected it, the corrected text.
+- **Corrections arrive with the next translation:** after a review, translate the items into that language again with **Overwrite existing translations** ticked (fields that already have a current translation are kept otherwise). As always, overwriting replaces edits made in Translate & Adapt.
+- Reviewers get a review link for your shop from Supertext; nothing to set up in Shopify.
+- The review service works with keys of the **live** Supertext API.
+- *Export for translation* and *Import translation* don't use the review service. The automatic API key check and *Test connection* still go directly to Supertext.
+- If Supertext has turned review off on the app's server, the checkboxes are disabled with *Translation review is turned off on this server*; your choices are kept.
 
 ## Version information
 
@@ -135,6 +152,7 @@ Open **Settings → Apps and sales channels**, choose **Supertext Translation** 
 | *The API key couldn't be checked: Supertext answered with an error (…)* | Supertext answered with an unexpected HTTP status (shown in brackets). Click **Test connection** later; if it stays, contact Supertext support. |
 | *Your Supertext translation limit is exceeded* | Your Supertext plan's limit is used up. Contact Supertext or upgrade your plan. |
 | *Too many requests to Supertext* | Supertext received too many requests at once and the app's automatic retries ran out. Start the translation again. |
+| Reviewers' corrections don't show up in the shop | They arrive with the next translation: translate the items into that language again with *Overwrite existing translations*. Check that *Translation review* is ticked for that language under Settings → Languages. |
 | *Add a second language* | Your shop has only one language. Add one under Settings → Languages. |
 | Translations don't show in the shop | Publish the language under Settings → Languages, and check that the shop's theme has a language selector. |
 | *Enter your API key again* (Settings) | The saved key can no longer be read, for example after a server change. Paste the key again and save. |

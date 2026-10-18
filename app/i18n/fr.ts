@@ -109,6 +109,10 @@ export const fr: Messages = {
   "settings.languages.sentAs": "Envoyée à Supertext comme {code}.",
   "settings.languages.unmapped": "Aucune langue Supertext : choisissez-en une dans la liste, sinon cette langue ne peut pas être traduite.",
   "settings.languages.noPoliteness": "Pas de forme formelle ou informelle dans cette langue ; Supertext décide.",
+  "settings.languages.review": "Révision des traductions",
+  "settings.languages.reviewHelp":
+    "Les traductions vers cette langue passent par le service de révision de Supertext, afin que les réviseurs puissent les vérifier et les corriger directement sur votre boutique en ligne avec l’extension Supertext Localization Review. Leurs corrections sont reprises lors de la prochaine traduction de l’élément (avec « Écraser les traductions existantes »).",
+  "settings.languages.reviewOffOnServer": "La révision des traductions est désactivée sur ce serveur.",
   "settings.reports.heading": "Informations de version",
   "settings.reports.label": "Envoyer les informations de version à Supertext",
   "settings.reports.help": "Envoie à Supertext l'adresse de la boutique ainsi que les versions de cette application, de l'API Shopify et de l'environnement d'exécution lorsque vous enregistrez ces paramètres et après une mise à jour. Le support Supertext voit ainsi quelle version vous utilisez. Aucun contenu, aucune clé API et aucune donnée personnelle ne sont transmis.",

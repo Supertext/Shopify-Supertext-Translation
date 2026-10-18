@@ -30,6 +30,7 @@ Customers see a language only once it is published under **Settings → Language
 - **Without** *Overwrite existing translations*, fields that already have a translation are kept. Recent translations shows them as *kept*.
 - Fields whose original text changed after they were translated are marked outdated by Shopify. These are always translated again, so a run without overwrite brings your translations up to date.
 - **With** *Overwrite existing translations*, every selected field is translated again, replacing edits you made in Translate & Adapt.
+- **Translation review:** if your administrator turned on *Translation review* for a language (Settings → Languages), reviewers (your colleagues or Supertext linguists) check and correct the translations on your online store. Their corrections come into Shopify the next time you translate the items into that language with *Overwrite existing translations*: after a review, translate them again. Texts reviewed once keep their corrected wording in later translations.
 
 ## Translation files: export for translation, import translation
 
